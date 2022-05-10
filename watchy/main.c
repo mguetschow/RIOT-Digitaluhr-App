@@ -25,7 +25,6 @@
 #include "periph/gpio.h"
 #include "ringbuffer.h"
 #include "timex.h"
-#include "xtimer.h"
 #include "ztimer.h"
 #include "ztimer/periodic.h"
 #include "thread.h"
@@ -46,6 +45,7 @@
 
 #include "watchy.h"
 #include "watchy_events.h"
+#include "gnss.h"
 
 #define ENABLE_DEBUG 1
 #include "debug.h"
@@ -68,43 +68,44 @@ static watchy_state_t watch_state;
 static lv_obj_t *lv_main_screen=NULL;
 static lv_obj_t *lv_second_screen=NULL;
 
-#define NMEA_LINE_BUF_LEN 80
 static char nmea_line[NMEA_LINE_BUF_LEN];
 
-#define TM_YEAR_OFFSET      (1900)
+//static uint8_t pointer_last_x=0;
+//static uint8_t pointer_last_y=0;
+//static bool pointer_clicked=false;
 
 
 static void print_time(const struct tm *time)
 {
-    DEBUG("%04d-%02d-%02d %02d:%02d:%02d\n",
-            time->tm_year + TM_YEAR_OFFSET,
-            time->tm_mon + 1,
-            time->tm_mday,
-            time->tm_hour,
-            time->tm_min,
-            time->tm_sec);
+	DEBUG("%04d-%02d-%02d %02d:%02d:%02d\n",
+		time->tm_year + TM_YEAR_OFFSET,
+		time->tm_mon + 1,
+		time->tm_mday,
+		time->tm_hour,
+		time->tm_min,
+		time->tm_sec);
 }
 
 
 static int _cmd_time(int argc, char **argv)
 {
-    (void) argc;
-    (void) argv;
+	(void) argc;
+	(void) argv;
 
-    print_time(&watch_state.clock);
+	print_time(&watch_state.clock);
 
 return 0;
 }
 
 static int _cmd_off(int argc, char **argv)
 {
-    (void) argc;
-    (void) argv;
+	(void) argc;
+	(void) argv;
 
-    xtimer_usleep(US_PER_SEC * 5);
-    board_power_off();
+	ztimer_sleep(ZTIMER_MSEC, 5);
+	board_power_off();
 
-    return 0;
+	return 0;
 }
 
 // %	V
@@ -162,40 +163,43 @@ static const uint16_t bat_mv_percent[] = {
 #define MIN_BAT_VOLT 3300
 bool get_power_stat(power_supply_stat_t *pwr)
 {
-    int32_t bvolt;
+	int32_t bvolt;
 
-    assert(pwr);
+	assert(pwr);
 
-    bvolt=(int32_t)adc_sample(1, ADC_RES_12BIT);
-    if (bvolt < 0)
-        return false;
-    bvolt= 3300 * (uint32_t)bvolt / (4095/4);
-    pwr->battery_mvolt = (uint16_t)bvolt;
-    //DEBUG("%d.%dV\n", (bvolt/1000), (bvolt%1000));
+	bvolt=(int32_t)adc_sample(1, ADC_RES_12BIT);
+	if (bvolt < 0)
+		return false;
+	bvolt= 3300 * (uint32_t)bvolt / (4095/4);
+	pwr->battery_mvolt = (uint16_t)bvolt;
+	//DEBUG("%d.%dV\n", (bvolt/1000), (bvolt%1000));
 
 #if 1
-    if (bvolt > MIN_BAT_VOLT) {
-      pwr->battery_percent = (bvolt - MIN_BAT_VOLT) / ((4200 - MIN_BAT_VOLT) / 100);
-      if (pwr->battery_percent > 100)
-        pwr->battery_percent = 100;
-    } else {
-      pwr->battery_percent = 0;
-    }
+	// linear approximation of battery % from full (4.2V) to
+	// minimum (MIN_BAT_VOLT), at the low current that the device
+	// draws the discharge curve is almost linear
+	if (bvolt > MIN_BAT_VOLT) {
+		pwr->battery_percent = (bvolt - MIN_BAT_VOLT) / ((4200 - MIN_BAT_VOLT) / 100);
+		if (pwr->battery_percent > 100)
+			pwr->battery_percent = 100;
+	} else {
+		pwr->battery_percent = 0;
+	}
 #else
-    pwr->battery_percent = 0;
-    for (uint8_t i=0; i<ARRAY_SIZE(bat_mv_percent); i+=2) {
-      if (bvolt >= bat_mv_percent[i]) {
-        pwr->battery_percent = bat_mv_percent[i+1];
-        break;
-      }
-    }
+	pwr->battery_percent = 0;
+	for (uint8_t i=0; i<ARRAY_SIZE(bat_mv_percent); i+=2) {
+		if (bvolt >= bat_mv_percent[i]) {
+			pwr->battery_percent = bat_mv_percent[i+1];
+			break;
+		}
+	}
 #endif
 
-    pwr->charger_present = !gpio_read(EXTPOWER_PRESENT);
+	pwr->charger_present = !gpio_read(EXTPOWER_PRESENT);
 
-    pwr->charge_complete = gpio_read(CHARGE_COMPLETE);
+	pwr->charge_complete = gpio_read(CHARGE_COMPLETE);
 
-    return true;
+	return true;
 }
 
 static int _cmd_bat(int argc, char **argv)
@@ -260,30 +264,44 @@ static int _cmd_vib(int argc, char **argv)
     return 0;
 }
 
+void gnss_power_control(bool pwr)
+{
+	if (pwr) {
+		watch_state.gnss_pwr = true;
+		gpio_set(GPS_PWR);
+	} else {
+		watch_state.gnss_pwr = false;
+		gpio_clear(GPS_PWR);
+		watch_state.gnss_state.fix_valid = false;
+		watch_state.gnss_state.sats_in_fix = 0;
+		watch_state.gnss_state.sats_in_view = 0;
+	}
+}
+
 static int _cmd_gnss(int argc, char **argv)
 {
-    (void) argc;
-    (void) argv;
+	(void) argc;
+	(void) argv;
 
-    if (gpio_read(GPS_PWR)) {
-      puts("turning GNSS off");
-      gpio_clear(GPS_PWR);
-    } else {
-      puts("turning GNSS on");
-      gpio_set(GPS_PWR);
-    }
+	if (watch_state.gnss_pwr) {
+		puts("turning GNSS off");
+		gnss_power_control(false);
+	} else {
+		puts("turning GNSS on");
+		gnss_power_control(true);
+	}
 
-    return 0;
+	return 0;
 }
 
 static const shell_command_t shell_commands[] = {
-    { "bat", "get battery state", _cmd_bat },
-    { "bl", "set LCD backlight brightness", _cmd_bl },
-    { "gnss", "turn on/off GNSS/GPS", _cmd_gnss },
-    { "off", "power off device", _cmd_off },
-    { "time", "print dttick", _cmd_time },
-    { "vib", "set vibration", _cmd_vib },
-    { NULL, NULL, NULL }
+	{ "bat", "get battery state", _cmd_bat },
+	{ "bl", "set LCD backlight brightness", _cmd_bl },
+	{ "gnss", "turn on/off GNSS/GPS", _cmd_gnss },
+	{ "off", "power off device", _cmd_off },
+	{ "time", "print dttick", _cmd_time },
+	{ "vib", "set vibration", _cmd_vib },
+	{ NULL, NULL, NULL }
 };
 
 
@@ -315,20 +333,20 @@ static cst816s_t _input_dev;
 static cst816s_touch_data_t _tdata;
 
 static const cst816s_params_t _cst816s_input_params = {
-    .i2c_dev = I2C_DEV(0),
-    .i2c_addr = TOUCH_I2C_ADDR,
-    .irq = TOUCH_INT,
-    .irq_flank = GPIO_FALLING,
-    .reset = TOUCH_RESET,
+	.i2c_dev = I2C_DEV(0),
+	.i2c_addr = TOUCH_I2C_ADDR,
+	.irq = TOUCH_INT,
+	.irq_flank = GPIO_FALLING,
+	.reset = TOUCH_RESET,
 };
 
 static void touch_cb(void *arg)
 {
-    (void) arg;
+	(void) arg;
 
-    // can not read I2C from IRQ context, just set a flag
-    watchy_event_queue_add(EV_TOUCH);
-    thread_wakeup(event_thread_pid);
+	// can not read I2C from IRQ context, just set a flag
+	watchy_event_queue_add(EV_TOUCH);
+	thread_wakeup(event_thread_pid);
 }
 
 static void _push_button_cb(void *arg)
@@ -338,9 +356,9 @@ static void _push_button_cb(void *arg)
 
     // DEBUG("Button %s", gpio_read(BUTTON0) ? "released " : "pressed\n");
     if (gpio_read(BUTTON0)) {
-        button_ev = xtimer_now_usec() - last_time_pressed;
+        button_ev = ztimer_now(ZTIMER_MSEC) - last_time_pressed;
     } else {
-        last_time_pressed = xtimer_now_usec();
+        last_time_pressed = ztimer_now(ZTIMER_MSEC);
         button_ev=1;
     }
     watchy_event_queue_add(EV_BUTTON);
@@ -429,19 +447,58 @@ lv_obj_t *date_label=NULL;
 lv_obj_t *bat_label=NULL;
 lv_obj_t *icon_label=NULL;
 
+static const char *btnm_map[] = {LV_SYMBOL_BLUETOOTH, LV_SYMBOL_SETTINGS, "\n",
+                                  LV_SYMBOL_EYE_OPEN, LV_SYMBOL_POWER, ""};
+
+static void settings_button_handler(lv_event_t * e)
+{
+	lv_event_code_t code = lv_event_get_code(e);
+	lv_obj_t * obj = lv_event_get_target(e);
+
+	if (code == LV_EVENT_VALUE_CHANGED) {
+		uint16_t id = lv_btnmatrix_get_selected_btn(obj);
+		const char *txt = lv_btnmatrix_get_btn_text(obj, id);
+
+		DEBUG("%d: '%s' was pressed\n", id, txt);
+		switch (id) {
+			case 0:
+				watch_state.bluetooth_pwr = !watch_state.bluetooth_pwr;
+				break;
+			case 1:
+				watch_state.gnss_pwr = !watch_state.gnss_pwr;
+				gnss_power_control(watch_state.gnss_pwr);
+				break;
+			default:
+				break;
+		}
+	}
+}
+
 static lv_obj_t *create_second_screen(void)
 {
     lv_obj_t *second_screen;
-    lv_obj_t *label;
+    //lv_obj_t *label;
 
     second_screen = lv_obj_create(NULL);
 
-    label=lv_label_create(second_screen);
-    lv_label_set_recolor(label, true);
-    lv_obj_set_style_text_color(label, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(label, &SourceSansProSemiBold18_4bpp, LV_STATE_DEFAULT);
-    lv_label_set_text(label, "Second screen!");
-    lv_obj_set_pos(label, 10, 50);
+    lv_obj_t *btnm1 = lv_btnmatrix_create(second_screen);
+    lv_obj_set_size(btnm1, LV_HOR_RES_MAX, LV_VER_RES_MAX);
+    lv_obj_set_style_bg_color(btnm1, lv_color_black(), LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btnm1, lv_color_make(0,0,0xff), LV_PART_ITEMS | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(btnm1, lv_color_make(0,0xff,0), LV_PART_ITEMS | LV_STATE_CHECKED);
+    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+//    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_36, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+    lv_btnmatrix_set_map(btnm1, btnm_map);
+
+    lv_btnmatrix_set_btn_ctrl(btnm1, 0, LV_BTNMATRIX_CTRL_CHECKABLE);
+    lv_btnmatrix_set_btn_ctrl(btnm1, 0, watch_state.bluetooth_pwr ? LV_BTNMATRIX_CTRL_CHECKED : 0);
+
+    lv_btnmatrix_set_btn_ctrl(btnm1, 1, LV_BTNMATRIX_CTRL_CHECKABLE);
+    lv_btnmatrix_set_btn_ctrl(btnm1, 1, watch_state.gnss_pwr ? LV_BTNMATRIX_CTRL_CHECKED : 0);
+
+    lv_obj_align(btnm1, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_event_cb(btnm1, settings_button_handler, LV_EVENT_ALL, NULL);
 
     return second_screen;
 }
@@ -472,7 +529,7 @@ static lv_obj_t *create_main_screen(void)
     date_label=lv_label_create(main_screen);
     lv_label_set_recolor(date_label, true);
     lv_obj_set_style_text_font(date_label, &SourceSansProSemiBold36_num_4bpp, LV_STATE_DEFAULT);
-    lv_obj_set_pos(date_label, 40, 120);
+    lv_obj_set_pos(date_label, 50, 120);
 
     return main_screen;
 }
@@ -508,15 +565,15 @@ static void xdisplay_on(void)
 
 void update_main_screen(void)
 {
-   get_power_stat(&watch_state.pwr_stat);
-   if (lv_main_screen != NULL) {
-       char lstr[32];
+	get_power_stat(&watch_state.pwr_stat);
+	if (lv_main_screen != NULL) {
+		char lstr[32];
 
        //snprintf(lstr, 15, "%02d:%02d:%02d", _my_time.tm_hour, _my_time.tm_min, _my_time.tm_sec);
        //snprintf(lstr, 15, "%02d%s :#%02d", _my_time.tm_hour, (_my_time.tm_sec%2)?"#00ff00":"#ff0000", _my_time.tm_min);
        snprintf(lstr, 15, "%02d:%02d", watch_state.clock.tm_hour, watch_state.clock.tm_min);
        lv_label_set_text(clock_label, lstr);
-       DEBUG("%s\n", lstr);
+       // DEBUG("%s\n", lstr);
        snprintf(lstr, 15, "%d.%d.", watch_state.clock.tm_mday, watch_state.clock.tm_mon+1);
        lv_label_set_text(date_label, lstr);
 
@@ -535,9 +592,19 @@ void update_main_screen(void)
        lv_label_set_text(bat_label, lstr);
 
        memset(lstr, 0, 32);
-       strncat(lstr,"#ffffff " LV_SYMBOL_BLUETOOTH "# ", 31);
-       if (gpio_read(GPS_PWR))
-           strncat(lstr,"#ffffff " LV_SYMBOL_GPS "# ", 31);
+       if (watch_state.bluetooth_pwr) {
+         strncat(lstr,"#ffffff " LV_SYMBOL_BLUETOOTH "# ", 31);
+       }
+       if (watch_state.gnss_pwr) {
+           char satnum[16];
+           snprintf(satnum, 15, "%d/%d", watch_state.gnss_state.sats_in_fix, watch_state.gnss_state.sats_in_view);
+           if (watch_state.gnss_state.fix_valid) {
+               strncat(lstr,"#00ff00 " LV_SYMBOL_GPS "# ", 31);
+           } else {
+               strncat(lstr,"#ffffff " LV_SYMBOL_GPS "# ", 31);
+           }
+           strncat(lstr, satnum, 31);
+       }
        lv_label_set_text(icon_label, lstr);
    }
 }
@@ -555,7 +622,7 @@ void *event_thread(void *arg)
           ev=watchy_event_queue_get();
           switch (ev) {
               case EV_SEC_TICK:
-                  if (watch_state.clock.tm_sec==0) {
+                  if (watch_state.clock.tm_sec==0 || watch_state.gnss_pwr) {
                     update_main_screen();
                     wake_lvgl=true;
                   }
@@ -570,6 +637,8 @@ void *event_thread(void *arg)
                   break;
               case EV_TOUCH:
                   cst816s_read(&_input_dev, &_tdata);
+                  watch_state.touch_state.x = _tdata.x;
+                  watch_state.touch_state.y = _tdata.y;
                   bl_timeout=5;
                   //lpm013m126_on();
                   xdisplay_on();
@@ -585,50 +654,33 @@ void *event_thread(void *arg)
                       lv_scr_load_anim(lv_second_screen, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 250, 0, true);
                       lv_main_screen = NULL;
                     }
-                    wake_lvgl=true;
+                  } else { // CST816S_TOUCH_DOWN
+                    if (_tdata.gesture == CST816S_GESTURE_SINGLE_CLICK) {
+                      watch_state.touch_state.clicked = true;
+                      // DEBUG("click %d %d\n", pointer_last_x, pointer_last_y);
+                    }
                   }
+                  wake_lvgl=true;
                   break;
               case EV_BUTTON:
                   DEBUG("btn\n");
                   bl_timeout=5;
                   //lpm013m126_on();
                   xdisplay_on();
+                  if (lv_main_screen==NULL) {
+                      lv_main_screen = create_main_screen();
+                      update_main_screen();
+                      lv_scr_load_anim(lv_main_screen, LV_SCR_LOAD_ANIM_MOVE_TOP, 250, 0, true);
+                      lv_second_screen = NULL;
+                  }
                   break;
               case EV_ACCEL:
                   break;
               case EV_MAGNETOMETER:
                   break;
               case EV_GNSS:
-                  {
-                    // DEBUG("\n%d '%s'\n", minmea_sentence_id(nmea_line, false), nmea_line);
-                    if (minmea_sentence_id(nmea_line, false) == MINMEA_SENTENCE_ZDA) {
-                      struct minmea_sentence_zda frame;
-                      int res = minmea_parse_zda(&frame, nmea_line);
-                      if (!res) {
-                        puts("FAILURE: error parsing GPS sentence");
-                      } else {
-                        // DEBUG("ZDA %d.%d.%d %d:%d.%d\n", frame.date.day, frame.date.month, frame.date.year, frame.time.hours, frame.time.minutes, frame.time.seconds);
-                        if (frame.time.hours != -1) {
-                          // time is valid now
-                          watch_state.gnss_state.time_valid = true;
-                          watch_state.clock.tm_hour = frame.time.hours + 2;
-                          watch_state.clock.tm_hour %= 24;
-                          watch_state.clock.tm_min = frame.time.minutes;
-                          watch_state.clock.tm_sec = frame.time.seconds;
-                        } else
-                          watch_state.gnss_state.time_valid = false;
-                        if (frame.date.day > 0) {
-                          watch_state.gnss_state.date_valid = true;
-                          watch_state.clock.tm_mday = frame.date.day;
-                          watch_state.clock.tm_mon = frame.date.month - 1;
-                          watch_state.clock.tm_year = frame.date.year - TM_YEAR_OFFSET;
-                        } else
-                          watch_state.gnss_state.date_valid = false;
-                      }
-                    }
-                    // clear line for new msgs
-                    memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
-                  };
+              	  DEBUG("g: %s\n", nmea_line);
+                  handle_gnss_event(nmea_line, &watch_state);
                   break;
               case EV_ATMOSPHERE:
                   break;
@@ -691,69 +743,92 @@ static bool rtc_second_cb(void *arg)
    return true;
 }
 
+void lv_input_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
+{
+  (void) drv;
+
+  data->point.x = watch_state.touch_state.x;
+  data->point.y = watch_state.touch_state.y;
+  data->continue_reading = false;
+  if (watch_state.touch_state.clicked) {
+    watch_state.touch_state.clicked=false;
+    data->state = LV_INDEV_STATE_PRESSED;
+    // DEBUG("lvclk %d %d\n", data->point.x, data->point.y);
+  } else {
+    data->state = LV_INDEV_STATE_RELEASED; 
+    // DEBUG("lvclk rel\n");
+  }
+}
 
 int main(void)
 {
-    static ztimer_periodic_t timer;
+	static ztimer_periodic_t timer;
+	static lv_indev_drv_t indev_drv;
 
-    memset(&watch_state, 0, sizeof(watchy_state_t));
+	memset(&watch_state, 0, sizeof(watchy_state_t));
 
-    watch_state.clock.tm_year = 2022 - TM_YEAR_OFFSET;
-    watch_state.clock.tm_mon = 2;
-    watch_state.clock.tm_mday = 13;
-    watch_state.clock.tm_hour = 1;
-    watch_state.clock.tm_min = 0;
-    watch_state.clock.tm_sec = 0;
+	watch_state.clock.tm_year = 2022 - TM_YEAR_OFFSET;
+	watch_state.clock.tm_mon = 2;
+	watch_state.clock.tm_mday = 13;
+	watch_state.clock.tm_hour = 1;
+	watch_state.clock.tm_min = 0;
+	watch_state.clock.tm_sec = 0;
 
-    ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);
-    ztimer_periodic_start(&timer);
+	ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);
+	ztimer_periodic_start(&timer);
 
-    // init LCD, display logo and enable backlight
-//    lpm013m126_init(&_disp_dev, &lpm013m126_params);
-//    display_logo(&_disp_dev);
-    pwm_set(PWM_DEV(0), 0, 80);
-    pwm_poweron(PWM_DEV(0));
+	watch_state.gnss_pwr = false;
+	watch_state.bluetooth_pwr = false;
 
-    gpio_init_int(BUTTON0, GPIO_IN_PU, GPIO_BOTH, _push_button_cb, NULL);
-    gpio_init_int(EXTPOWER_PRESENT, GPIO_IN_PU, GPIO_BOTH, _ext_power_cb, NULL);
+	// init LCD, display logo and enable backlight
+	// lpm013m126_init(&_disp_dev, &lpm013m126_params);
+	// display_logo(&_disp_dev);
+	pwm_set(PWM_DEV(0), 0, 80);
+	//pwm_poweron(PWM_DEV(0));
+	xdisplay_on();
 
-    if (cst816s_init(&_input_dev, &_cst816s_input_params, touch_cb, NULL) != CST816S_OK) {
-        DEBUG("cst init fail\n");
-    };
+	gpio_init_int(BUTTON0, GPIO_IN_PU, GPIO_BOTH, _push_button_cb, NULL);
+	gpio_init_int(EXTPOWER_PRESENT, GPIO_IN_PU, GPIO_BOTH, _ext_power_cb, NULL);
 
-    memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
-    // GNSS/GPS UART, 9600baud default
-    if (uart_init(UART_DEV(0), 9600, uart_rx_cb, NULL)) {
-        DEBUG("error configuring 9600 baud\n");
-    }
+	if (cst816s_init(&_input_dev, &_cst816s_input_params, touch_cb, NULL) != CST816S_OK) {
+		DEBUG("cst init fail\n");
+	};
 
-    event_thread_pid=thread_create(event_thread_stack, sizeof(event_thread_stack),
-              THREAD_PRIORITY_IDLE - 1, THREAD_CREATE_STACKTEST,
-              event_thread, NULL, "event_thread");
-    DEBUG("eventthr=%d\n", event_thread_pid);
+	memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
+	// GNSS/GPS UART, 9600baud default
+	if (uart_init(UART_DEV(0), 9600, uart_rx_cb, NULL)) {
+		DEBUG("error configuring 9600 baud\n");
+	}
 
-    shell_thread_pid=thread_create(shell_thread_stack, sizeof(shell_thread_stack),
-              THREAD_PRIORITY_IDLE - 1, THREAD_CREATE_STACKTEST,
-              shell_thread, NULL, "shell_thread");
-    DEBUG("shellthr=%d\n", shell_thread_pid);
+	event_thread_pid=thread_create(event_thread_stack, sizeof(event_thread_stack),
+		THREAD_PRIORITY_IDLE - 1, THREAD_CREATE_STACKTEST,
+		event_thread, NULL, "event_thread");
+	DEBUG("eventthr=%d\n", event_thread_pid);
 
-    get_power_stat(&watch_state.pwr_stat);
+	shell_thread_pid=thread_create(shell_thread_stack, sizeof(shell_thread_stack),
+		THREAD_PRIORITY_IDLE - 1, THREAD_CREATE_STACKTEST,
+		shell_thread, NULL, "shell_thread");
+	DEBUG("shellthr=%d\n", shell_thread_pid);
 
-    // DEBUG("c=%d\n", sizeof(lv_color_t));
-    lv_main_screen = create_main_screen();
-    update_main_screen();
-    lv_second_screen = NULL;
+   	get_power_stat(&watch_state.pwr_stat);
 
-    lv_disp_load_scr(lv_main_screen);
+	lv_indev_drv_init(&indev_drv);
+	indev_drv.type = LV_INDEV_TYPE_POINTER;
+	indev_drv.read_cb = lv_input_cb;
+	lv_indev_drv_register(&indev_drv);
 
-    watchy_event_queue_add(EV_SEC_TICK);
-    thread_wakeup(event_thread_pid);
 
-    xdisplay_on();
+	// DEBUG("c=%d\n", sizeof(lv_color_t));
+	lv_main_screen = create_main_screen();
+	update_main_screen();
+	lv_second_screen = NULL;
 
-    lvgl_run();
+	lv_disp_load_scr(lv_main_screen);
 
-    // shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
+	watchy_event_queue_add(EV_SEC_TICK);
+	thread_wakeup(event_thread_pid);
 
-    return 0;
+	lvgl_run();
+
+	return 0;
 }

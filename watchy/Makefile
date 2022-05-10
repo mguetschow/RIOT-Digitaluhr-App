@@ -19,7 +19,6 @@ QUIET ?= 1
 USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
-USEMODULE += xtimer
 USEMODULE += ztimer_sec
 USEMODULE += ztimer_msec
 USEMODULE += i2c_scan
@@ -33,6 +32,7 @@ USEMODULE += lvgl_contrib
 USEMODULE += lvgl_font
 USEMODULE += lvgl_widget_label
 USEMODULE += lvgl_widget_btn
+USEMODULE += lvgl_widget_btnmatrix
 
 USEMODULE += lvgl_misc
 USEMODULE += lvgl_draw
@@ -44,15 +44,17 @@ USEMODULE += core_thread_flags
 USEMODULE += lvgl_extra_theme_default
 USEMODULE += lvgl_extra_theme_default_dark
 
+USEMODULE += printf_float
+
 USEPKG += minmea
 
-USEPKG += nimble
-USEMODULE += nimble_host_store_ram
-USEMODULE += nimble_host
-USEMODULE += nimble_controller
-USEMODULE += nimble_svc_gap
-USEMODULE += nimble_svc_gatt
-USEMODULE += bluetil_ad
+#USEPKG += nimble
+#USEMODULE += nimble_host_store_ram
+#USEMODULE += nimble_host
+#USEMODULE += nimble_controller
+#USEMODULE += nimble_svc_gap
+#USEMODULE += nimble_svc_gatt
+#USEMODULE += bluetil_ad
 
 USEMODULE += core_thread_flags
 USEMODULE += luid
@@ -80,5 +82,6 @@ CFLAGS += -DRTT_CONSOLE
 #CFLAGS += -DISR_STACKSIZE=512
 CFLAGS += -DTHREAD_STACKSIZE_MAIN=THREAD_STACKSIZE_LARGE+THREAD_EXTRA_STACKSIZE_PRINTF
 
-CFLAGS += -DLV_COLOR_DEPTH=8
+CFLAGS += -DLV_COLOR_DEPTH=8 -DLV_HOR_RES_MAX=176 -DLV_VER_RES_MAX=176 -DLV_CONF_INCLUDE_SIMPLE -DLV_CONF_PATH="$(CURDIR)/lv_conf_watchy.h"
+
 include $(RIOTBASE)/Makefile.include
