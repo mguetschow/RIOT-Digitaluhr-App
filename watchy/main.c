@@ -16,7 +16,7 @@
 #include "byteorder.h"
 
 #include "shell.h"
-#include "shell_commands.h"
+//#include "shell_commands.h"
 
 #include "clk.h"
 #include "board.h"
@@ -35,7 +35,8 @@
 #include "periph/i2c.h"
 #include "periph/uart.h"
 #include "cst816s.h"
-#include "lpm013m126.h"
+
+//#include "lpm013m126.h"
 
 #include "lvgl/lvgl.h"
 #include "lvgl_riot.h"
@@ -46,6 +47,16 @@
 #include "watchy.h"
 #include "watchy_events.h"
 #include "gnss.h"
+
+#include "nimble_riot.h"
+
+#include "host/ble_hs.h"
+#include "host/ble_gap.h"
+#include "net/bluetil/ad.h"
+
+#include "nimble_autoadv.h"
+
+#include "gatt-adv.h"
 
 #define ENABLE_DEBUG 1
 #include "debug.h"
@@ -74,6 +85,7 @@ static char nmea_line[NMEA_LINE_BUF_LEN];
 //static uint8_t pointer_last_y=0;
 //static bool pointer_clicked=false;
 
+#define DISPLAY_TIMEOUT 5
 
 static void print_time(const struct tm *time)
 {
@@ -382,8 +394,12 @@ void uart_rx_cb(void *arg, uint8_t data)
       watchy_event_queue_add(EV_GNSS);
       thread_wakeup(event_thread_pid);
   } else {
-      if (data>0x1f)
-        nmea_line[strlen(nmea_line)] = data;
+      if (data > 0x1f) {
+        if (strlen(nmea_line) < (NMEA_LINE_BUF_LEN-2))
+          nmea_line[strlen(nmea_line)] = data;
+        else
+          memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
+      }
   }
 }
 
@@ -463,6 +479,10 @@ static void settings_button_handler(lv_event_t * e)
 		switch (id) {
 			case 0:
 				watch_state.bluetooth_pwr = !watch_state.bluetooth_pwr;
+				if (watch_state.bluetooth_pwr)
+				  nimble_autoadv_start(NULL);
+                                else
+                                  nimble_autoadv_stop();
 				break;
 			case 1:
 				watch_state.gnss_pwr = !watch_state.gnss_pwr;
@@ -488,7 +508,7 @@ static lv_obj_t *create_second_screen(void)
     lv_obj_set_style_bg_color(btnm1, lv_color_make(0,0xff,0), LV_PART_ITEMS | LV_STATE_CHECKED);
     lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_14, LV_STATE_DEFAULT);
 //    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_36, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_24, LV_STATE_DEFAULT);
     lv_btnmatrix_set_map(btnm1, btnm_map);
 
     lv_btnmatrix_set_btn_ctrl(btnm1, 0, LV_BTNMATRIX_CTRL_CHECKABLE);
@@ -614,7 +634,7 @@ void *event_thread(void *arg)
     (void) arg;
     watchy_event_t ev;
     bool wake_lvgl=false;
-    static uint8_t bl_timeout=5;
+    static uint8_t bl_timeout=DISPLAY_TIMEOUT;
  
     while (true) {
       while (watchy_event_queue_length()) {
@@ -639,32 +659,38 @@ void *event_thread(void *arg)
                   cst816s_read(&_input_dev, &_tdata);
                   watch_state.touch_state.x = _tdata.x;
                   watch_state.touch_state.y = _tdata.y;
-                  bl_timeout=5;
-                  //lpm013m126_on();
-                  xdisplay_on();
                   // print_tdata(&_tdata);
-                  if (_tdata.action == CST816S_TOUCH_UP) {
-                    if (_tdata.gesture == CST816S_GESTURE_SLIDE_UP && lv_main_screen==NULL) {
-                      lv_main_screen = create_main_screen();
-                      update_main_screen();
-                      lv_scr_load_anim(lv_main_screen, LV_SCR_LOAD_ANIM_MOVE_TOP, 250, 0, true);
-                      lv_second_screen = NULL;
-                    } else if (_tdata.gesture == CST816S_GESTURE_SLIDE_DOWN && lv_second_screen==NULL) {
-                      lv_second_screen = create_second_screen();
-                      lv_scr_load_anim(lv_second_screen, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 250, 0, true);
-                      lv_main_screen = NULL;
+                  if (bl_timeout) {
+                    if (_tdata.action == CST816S_TOUCH_UP) {
+                      if (_tdata.gesture == CST816S_GESTURE_SLIDE_UP && lv_main_screen==NULL) {
+                        lv_main_screen = create_main_screen();
+                        update_main_screen();
+                        lv_scr_load_anim(lv_main_screen, LV_SCR_LOAD_ANIM_MOVE_TOP, 250, 0, true);
+                        lv_second_screen = NULL;
+                      } else if (_tdata.gesture == CST816S_GESTURE_SLIDE_DOWN && lv_second_screen==NULL) {
+                        lv_second_screen = create_second_screen();
+                        lv_scr_load_anim(lv_second_screen, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 250, 0, true);
+                        lv_main_screen = NULL;
+                        }
+                    } else { // CST816S_TOUCH_DOWN
+                      if (_tdata.gesture == CST816S_GESTURE_SINGLE_CLICK) {
+                        watch_state.touch_state.clicked = true;
+                        // DEBUG("click %d %d\n", pointer_last_x, pointer_last_y);
+                      }
                     }
-                  } else { // CST816S_TOUCH_DOWN
+                    wake_lvgl=true;
+                    bl_timeout=DISPLAY_TIMEOUT;
+                  } else {
                     if (_tdata.gesture == CST816S_GESTURE_SINGLE_CLICK) {
-                      watch_state.touch_state.clicked = true;
-                      // DEBUG("click %d %d\n", pointer_last_x, pointer_last_y);
+                      //lpm013m126_on();
+                      xdisplay_on();
+                      bl_timeout=DISPLAY_TIMEOUT;
                     }
                   }
-                  wake_lvgl=true;
                   break;
               case EV_BUTTON:
                   DEBUG("btn\n");
-                  bl_timeout=5;
+                  bl_timeout=DISPLAY_TIMEOUT;
                   //lpm013m126_on();
                   xdisplay_on();
                   if (lv_main_screen==NULL) {
@@ -679,7 +705,7 @@ void *event_thread(void *arg)
               case EV_MAGNETOMETER:
                   break;
               case EV_GNSS:
-              	  DEBUG("g: %s\n", nmea_line);
+              	  // DEBUG("g: %s\n", nmea_line);
                   handle_gnss_event(nmea_line, &watch_state);
                   break;
               case EV_ATMOSPHERE:
@@ -688,7 +714,7 @@ void *event_thread(void *arg)
                   break;
               case EV_POWER_CHANGE:
                   update_main_screen();
-                  bl_timeout=5;
+                  bl_timeout=DISPLAY_TIMEOUT;
                   //lpm013m126_on();
                   xdisplay_on();
                   wake_lvgl = true;
@@ -783,7 +809,7 @@ int main(void)
 	// init LCD, display logo and enable backlight
 	// lpm013m126_init(&_disp_dev, &lpm013m126_params);
 	// display_logo(&_disp_dev);
-	pwm_set(PWM_DEV(0), 0, 80);
+	pwm_set(PWM_DEV(0), 0, 50);
 	//pwm_poweron(PWM_DEV(0));
 	xdisplay_on();
 
@@ -793,6 +819,8 @@ int main(void)
 	if (cst816s_init(&_input_dev, &_cst816s_input_params, touch_cb, NULL) != CST816S_OK) {
 		DEBUG("cst init fail\n");
 	};
+
+	// i2c_init(I2C_DEV(1));
 
 	memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
 	// GNSS/GPS UART, 9600baud default
@@ -827,6 +855,8 @@ int main(void)
 
 	watchy_event_queue_add(EV_SEC_TICK);
 	thread_wakeup(event_thread_pid);
+
+	watchy_gatt_init();
 
 	lvgl_run();
 

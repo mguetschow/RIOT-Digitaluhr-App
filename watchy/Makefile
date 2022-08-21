@@ -48,7 +48,13 @@ USEMODULE += printf_float
 
 USEPKG += minmea
 
-#USEPKG += nimble
+USEPKG += nimble
+USEMODULE += nimble_svc_gap
+USEMODULE += nimble_svc_gatt
+USEMODULE += nimble_autoadv
+CFLAGS += -DCONFIG_NIMBLE_AUTOADV_DEVICE_NAME='"NimBLE GATT Example"'
+CFLAGS += -DCONFIG_NIMBLE_AUTOADV_START_MANUALLY=1
+
 #USEMODULE += nimble_host_store_ram
 #USEMODULE += nimble_host
 #USEMODULE += nimble_controller
