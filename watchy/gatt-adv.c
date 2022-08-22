@@ -37,7 +37,7 @@
 #include <string.h>
 
 #include "nimble_riot.h"
-#include "nimble_autoadv.h"
+//#include "nimble_autoadv.h"
 
 #include "host/ble_hs.h"
 #include "host/util/util.h"

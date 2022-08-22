@@ -36,7 +36,10 @@
 #include "periph/uart.h"
 #include "cst816s.h"
 
-//#include "lpm013m126.h"
+#define BMX280_PARAM_I2C_DEV        I2C_DEV(2)
+#define BMX280_PARAM_I2C_ADDR       (0x76)
+#include "bmx280_params.h"
+#include "bmx280.h"
 
 #include "lvgl/lvgl.h"
 #include "lvgl_riot.h"
@@ -463,6 +466,30 @@ lv_obj_t *date_label=NULL;
 lv_obj_t *bat_label=NULL;
 lv_obj_t *icon_label=NULL;
 
+static void msgbox_event_cb(lv_event_t * e)
+{
+    lv_obj_t * obj = lv_event_get_current_target(e);
+    lv_obj_t *mbox = lv_event_get_user_data(e);
+
+    DEBUG("Button %s clicked\n", lv_msgbox_get_active_btn_text(obj));
+
+    if (strcmp("OK", lv_msgbox_get_active_btn_text(obj))==0)
+      _cmd_off(0, NULL);
+
+    lv_msgbox_close(mbox);
+}
+
+void power_off_dialog(lv_obj_t *par)
+{
+    static const char * btns[] = {"OK", "Cancel", ""};
+
+    lv_obj_t * mbox1 = lv_msgbox_create(par, "Power Off", "Are you sure?", btns, false);
+    lv_obj_set_style_bg_color(mbox1, lv_color_black(), LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(mbox1, &SourceSansProSemiBold14_4bpp, LV_STATE_DEFAULT);
+    lv_obj_add_event_cb(mbox1, msgbox_event_cb, LV_EVENT_VALUE_CHANGED, mbox1);
+    lv_obj_center(mbox1);
+}
+
 static const char *btnm_map[] = {LV_SYMBOL_BLUETOOTH, LV_SYMBOL_SETTINGS, "\n",
                                   LV_SYMBOL_EYE_OPEN, LV_SYMBOL_POWER, ""};
 
@@ -488,6 +515,11 @@ static void settings_button_handler(lv_event_t * e)
 				watch_state.gnss_pwr = !watch_state.gnss_pwr;
 				gnss_power_control(watch_state.gnss_pwr);
 				break;
+                        case 2:
+                                break;
+                        case 3:
+                                power_off_dialog(lv_obj_get_parent(obj));
+                                break;
 			default:
 				break;
 		}
@@ -786,6 +818,9 @@ void lv_input_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
   }
 }
 
+
+//static bmx280_t bmx280_dev;
+
 int main(void)
 {
 	static ztimer_periodic_t timer;
@@ -819,8 +854,6 @@ int main(void)
 	if (cst816s_init(&_input_dev, &_cst816s_input_params, touch_cb, NULL) != CST816S_OK) {
 		DEBUG("cst init fail\n");
 	};
-
-	// i2c_init(I2C_DEV(1));
 
 	memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
 	// GNSS/GPS UART, 9600baud default
@@ -858,6 +891,21 @@ int main(void)
 
 	watchy_gatt_init();
 
+#if 0
+	switch (bmx280_init(&bmx280_dev, &bmx280_params[0])) {
+        case BMX280_ERR_BUS:
+            DEBUG("[Error] Something went wrong when using the I2C bus");
+            return 1;
+        case BMX280_ERR_NODEV:
+            DEBUG("[Error] Unable to communicate with any BMX280 device");
+            return 1;
+        default:
+            /* all good -> do nothing */
+            break;
+    }
+
+    DEBUG("Initialization successful\n");
+#endif
 	lvgl_run();
 
 	return 0;

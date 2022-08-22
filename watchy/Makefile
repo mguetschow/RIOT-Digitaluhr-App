@@ -33,6 +33,8 @@ USEMODULE += lvgl_font
 USEMODULE += lvgl_widget_label
 USEMODULE += lvgl_widget_btn
 USEMODULE += lvgl_widget_btnmatrix
+USEMODULE += lvgl_extra_layout_flex
+USEMODULE += lvgl_extra_widget_msgbox
 
 USEMODULE += lvgl_misc
 USEMODULE += lvgl_draw
@@ -52,7 +54,7 @@ USEPKG += nimble
 USEMODULE += nimble_svc_gap
 USEMODULE += nimble_svc_gatt
 USEMODULE += nimble_autoadv
-CFLAGS += -DCONFIG_NIMBLE_AUTOADV_DEVICE_NAME='"NimBLE GATT Example"'
+CFLAGS += -DCONFIG_NIMBLE_AUTOADV_DEVICE_NAME='"Watchy on RIOT"'
 CFLAGS += -DCONFIG_NIMBLE_AUTOADV_START_MANUALLY=1
 
 #USEMODULE += nimble_host_store_ram
@@ -73,6 +75,7 @@ USEMODULE += vfs
 USEPKG += littlefs
 USEMODULE += littlefs_fs
 
+USEMODULE += bmx280
 
 # Use a peripheral timer for the delay, if available
 FEATURES_REQUIRED += periph_i2c
