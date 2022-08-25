@@ -53,4 +53,6 @@ typedef struct {
     touchscreen_state_t touch_state;	// touchscreen state (last x/y etc.)
 } watchy_state_t;
 
+extern watchy_state_t watch_state;
+
 #endif
