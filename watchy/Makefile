@@ -21,9 +21,9 @@ USEMODULE += shell_commands
 USEMODULE += ps
 USEMODULE += ztimer_sec
 USEMODULE += ztimer_msec
+ifneq ($(BOARD),native)
 USEMODULE += i2c_scan
-#USEMODULE += nrf5x_periph_shared
-
+endif
 USEMODULE += lpm013m126
 USEMODULE += disp_dev
 
@@ -50,7 +50,7 @@ USEMODULE += lvgl_extra_theme_default_dark
 USEMODULE += printf_float
 
 USEPKG += minmea
-
+ifneq ($(BOARD),native)
 USEPKG += nimble
 USEMODULE += nimble_svc_gap
 USEMODULE += nimble_svc_gatt
@@ -64,6 +64,7 @@ CFLAGS += -DCONFIG_NIMBLE_AUTOADV_START_MANUALLY=1
 #USEMODULE += nimble_svc_gap
 #USEMODULE += nimble_svc_gatt
 #USEMODULE += bluetil_ad
+endif
 
 USEMODULE += core_thread_flags
 USEMODULE += luid
@@ -79,9 +80,11 @@ USEMODULE += littlefs_fs
 USEMODULE += bmx280
 
 # Use a peripheral timer for the delay, if available
+ifneq ($(BOARD),native)
 FEATURES_REQUIRED += periph_i2c
 //FEATURES_REQUIRED += periph_timer
 FEATURES_REQUIRED += periph_adc
+endif
 FEATURES_REQUIRED += periph_pwm
 FEATURES_REQUIRED += periph_spi
 FEATURES_REQUIRED += periph_gpio_irq
