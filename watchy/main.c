@@ -50,6 +50,7 @@ static bmx280_t bmx280_dev;
 
 #include "watchy.h"
 #include "watchy_events.h"
+#include "watchy_shell.h"
 #include "gnss.h"
 
 #include "nimble_riot.h"
@@ -69,7 +70,6 @@ static bmx280_t bmx280_dev;
 
 // #include "rl2.h"
 
-static char line_buf[SHELL_DEFAULT_BUFSIZE];
 static uint32_t button_ev = false;
 static char shell_thread_stack[THREAD_STACKSIZE_SMALL+THREAD_EXTRA_STACKSIZE_PRINTF];
 static char event_thread_stack[THREAD_STACKSIZE_SMALL+THREAD_EXTRA_STACKSIZE_PRINTF];
@@ -80,7 +80,7 @@ static kernel_pid_t event_thread_pid=0;
 // static uint8_t bl_timeout=5;
 //static power_supply_stat_t pwr_stat = { false, false, 0, 0 };
 
-static watchy_state_t watch_state;
+watchy_state_t watch_state;
 
 static lv_obj_t *lv_main_screen=NULL;
 static lv_obj_t *lv_second_screen=NULL;
@@ -93,38 +93,6 @@ static char nmea_line[NMEA_LINE_BUF_LEN];
 
 #define DISPLAY_TIMEOUT 5
 
-static void print_time(const struct tm *time)
-{
-	DEBUG("%04d-%02d-%02d %02d:%02d:%02d\n",
-		time->tm_year + TM_YEAR_OFFSET,
-		time->tm_mon + 1,
-		time->tm_mday,
-		time->tm_hour,
-		time->tm_min,
-		time->tm_sec);
-}
-
-
-static int _cmd_time(int argc, char **argv)
-{
-	(void) argc;
-	(void) argv;
-
-	print_time(&watch_state.clock);
-
-return 0;
-}
-
-static int _cmd_off(int argc, char **argv)
-{
-	(void) argc;
-	(void) argv;
-
-	ztimer_sleep(ZTIMER_MSEC, 5);
-	board_power_off();
-
-	return 0;
-}
 
 // %	V
 // 100	4.2
@@ -220,67 +188,6 @@ bool get_power_stat(power_supply_stat_t *pwr)
 	return true;
 }
 
-static int _cmd_bat(int argc, char **argv)
-{
-    (void) argc;
-    (void) argv;
-
-    get_power_stat(&watch_state.pwr_stat);
-
-    DEBUG("%dmV\n", watch_state.pwr_stat.battery_mvolt);
-    DEBUG("%d%%\n", watch_state.pwr_stat.battery_percent);
-    DEBUG("%sext power\n", watch_state.pwr_stat.charger_present ? "" : "no ");
-    DEBUG("%scharging\n", watch_state.pwr_stat.charge_complete ? "not " : "");
-
-    return 0;
-}
-
-static int _cmd_bl(int argc, char **argv)
-{
-    uint16_t bright;
-
-    if ((argc == 2) && (memcmp(argv[1], "help", 4) == 0)) {
-        DEBUG("usage: %s brightness (0-100)\n", argv[0]);
-
-        return 0;
-    }
-    if (argc >= 2) {
-        bright = (uint16_t)atoi(argv[1]);
-        if (bright) {
-            pwm_set(PWM_DEV(0), 0, bright);
-            pwm_poweron(PWM_DEV(0));
-        } else {
-            pwm_set(PWM_DEV(0), 0, 0);
-            pwm_poweroff(PWM_DEV(0));
-        }
-    }
-
-    return 0;
-}
-
-static int _cmd_vib(int argc, char **argv)
-{
-    uint16_t bright;
-
-    // 20-30 is totally enough
-    if ((argc == 2) && (memcmp(argv[1], "help", 4) == 0)) {
-        DEBUG("usage: %s intens (0-100)\n", argv[0]);
-
-        return 0;
-    }
-    if (argc >= 2) {
-        bright = (uint16_t)atoi(argv[1]);
-        if (bright) {
-            pwm_set(PWM_DEV(2), 0, bright);
-            pwm_poweron(PWM_DEV(2));
-        } else {
-            pwm_set(PWM_DEV(2), 0, 0);
-            pwm_poweroff(PWM_DEV(2));
-        }
-    }
-
-    return 0;
-}
 
 void gnss_power_control(bool pwr)
 {
@@ -295,46 +202,6 @@ void gnss_power_control(bool pwr)
 		watch_state.gnss_state.sats_in_view = 0;
 	}
 }
-
-static int _cmd_gnss(int argc, char **argv)
-{
-	(void) argc;
-	(void) argv;
-
-	if (watch_state.gnss_pwr) {
-		puts("turning GNSS off");
-		gnss_power_control(false);
-	} else {
-		puts("turning GNSS on");
-		gnss_power_control(true);
-	}
-
-	return 0;
-}
-
-static int _cmd_atm_pressure(int argc, char **argv)
-{
-	(void) argc;
-	(void) argv;
-	int16_t temperature = bmx280_read_temperature(&bmx280_dev);
-        uint32_t pressure = bmx280_read_pressure(&bmx280_dev);
-
-        DEBUG("%d C @ %ld hPa\n", temperature, pressure);
-
-        return 0;
-}
-
-static const shell_command_t shell_commands[] = {
-	{ "bat", "get battery state", _cmd_bat },
-	{ "bl", "set LCD backlight brightness", _cmd_bl },
-	{ "pr", "get athmo pressure", _cmd_atm_pressure },
-	{ "gnss", "turn on/off GNSS/GPS", _cmd_gnss },
-	{ "off", "power off device", _cmd_off },
-	{ "time", "print dttick", _cmd_time },
-	{ "vib", "set vibration", _cmd_vib },
-	{ NULL, NULL, NULL }
-};
-
 
 #if 0
 static lpm013m126_t _disp_dev;
@@ -490,7 +357,7 @@ static void msgbox_event_cb(lv_event_t * e)
     DEBUG("Button %s clicked\n", lv_msgbox_get_active_btn_text(obj));
 
     if (strcmp("OK", lv_msgbox_get_active_btn_text(obj))==0)
-      _cmd_off(0, NULL);
+      board_power_off();
 
     lv_msgbox_close(mbox);
 }
@@ -542,7 +409,7 @@ static void settings_button_handler(lv_event_t * e)
 	}
 }
 
-static lv_obj_t *create_second_screen(void)
+static lv_obj_t *create_quick_settings_screen(void)
 {
     lv_obj_t *second_screen;
     //lv_obj_t *label;
@@ -716,7 +583,7 @@ void *event_thread(void *arg)
                         lv_scr_load_anim(lv_main_screen, LV_SCR_LOAD_ANIM_MOVE_TOP, 250, 0, true);
                         lv_second_screen = NULL;
                       } else if (_tdata.gesture == CST816S_GESTURE_SLIDE_DOWN && lv_second_screen==NULL) {
-                        lv_second_screen = create_second_screen();
+                        lv_second_screen = create_quick_settings_screen();
                         lv_scr_load_anim(lv_second_screen, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 250, 0, true);
                         lv_main_screen = NULL;
                         }
@@ -783,14 +650,6 @@ void *event_thread(void *arg)
     return NULL;
 }
 
-void *shell_thread(void *arg)
-{
-    (void) arg;
-
-    shell_run(shell_commands, line_buf, SHELL_DEFAULT_BUFSIZE);
-
-    return NULL;
-}
 
 static bool rtc_second_cb(void *arg)
 {
