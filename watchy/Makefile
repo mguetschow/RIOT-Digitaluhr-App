@@ -22,6 +22,7 @@ USEMODULE += ps
 USEMODULE += ztimer_sec
 USEMODULE += ztimer_msec
 USEMODULE += i2c_scan
+#USEMODULE += nrf5x_periph_shared
 
 USEMODULE += lpm013m126
 USEMODULE += disp_dev
