@@ -40,6 +40,7 @@
 #define BMX280_PARAM_I2C_ADDR       (0x76)
 #include "bmx280_params.h"
 #include "bmx280.h"
+static bmx280_t bmx280_dev;
 
 #include "lvgl/lvgl.h"
 #include "lvgl_riot.h"
@@ -60,6 +61,8 @@
 #include "nimble_autoadv.h"
 
 #include "gatt-adv.h"
+
+#include "kx023-1025.h"
 
 #define ENABLE_DEBUG 1
 #include "debug.h"
@@ -309,9 +312,22 @@ static int _cmd_gnss(int argc, char **argv)
 	return 0;
 }
 
+static int _cmd_atm_pressure(int argc, char **argv)
+{
+	(void) argc;
+	(void) argv;
+	int16_t temperature = bmx280_read_temperature(&bmx280_dev);
+        uint32_t pressure = bmx280_read_pressure(&bmx280_dev);
+
+        DEBUG("%d C @ %ld hPa\n", temperature, pressure);
+
+        return 0;
+}
+
 static const shell_command_t shell_commands[] = {
 	{ "bat", "get battery state", _cmd_bat },
 	{ "bl", "set LCD backlight brightness", _cmd_bl },
+	{ "pr", "get athmo pressure", _cmd_atm_pressure },
 	{ "gnss", "turn on/off GNSS/GPS", _cmd_gnss },
 	{ "off", "power off device", _cmd_off },
 	{ "time", "print dttick", _cmd_time },
@@ -819,7 +835,6 @@ void lv_input_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 }
 
 
-//static bmx280_t bmx280_dev;
 
 int main(void)
 {
@@ -829,8 +844,8 @@ int main(void)
 	memset(&watch_state, 0, sizeof(watchy_state_t));
 
 	watch_state.clock.tm_year = 2022 - TM_YEAR_OFFSET;
-	watch_state.clock.tm_mon = 2;
-	watch_state.clock.tm_mday = 13;
+	watch_state.clock.tm_mon = 8;
+	watch_state.clock.tm_mday = 20;
 	watch_state.clock.tm_hour = 1;
 	watch_state.clock.tm_min = 0;
 	watch_state.clock.tm_sec = 0;
@@ -844,7 +859,7 @@ int main(void)
 	// init LCD, display logo and enable backlight
 	// lpm013m126_init(&_disp_dev, &lpm013m126_params);
 	// display_logo(&_disp_dev);
-	pwm_set(PWM_DEV(0), 0, 50);
+	pwm_set(PWM_DEV(0), 0, 20);
 	//pwm_poweron(PWM_DEV(0));
 	xdisplay_on();
 
@@ -891,7 +906,7 @@ int main(void)
 
 	watchy_gatt_init();
 
-#if 0
+#if 1
 	switch (bmx280_init(&bmx280_dev, &bmx280_params[0])) {
         case BMX280_ERR_BUS:
             DEBUG("[Error] Something went wrong when using the I2C bus");
@@ -902,10 +917,12 @@ int main(void)
         default:
             /* all good -> do nothing */
             break;
-    }
-
-    DEBUG("Initialization successful\n");
+        }
+        DEBUG("BMX280 Initialization successful\n");
 #endif
+
+        kx023_init();
+
 	lvgl_run();
 
 	return 0;
