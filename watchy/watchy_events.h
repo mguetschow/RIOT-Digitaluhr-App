@@ -18,6 +18,7 @@ typedef enum {
     EV_BUTTON,		// push button press/release
     EV_ACCEL,		// accelerometer / inertial sensor
     EV_MAGNETOMETER,	// magnetometer sensor
+    EV_HRM,		// heart rate monitor sensor
     EV_GNSS,		// GNSS/GPS
     EV_ATMOSPHERE,	// athmosphere sensor (pressure)
     EV_DISPLAY_TIMEOUT,	// display timeout (backlight off, disp off etc.)

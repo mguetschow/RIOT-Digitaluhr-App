@@ -6,8 +6,15 @@
 #include <string.h>
 #include <time.h>
 
-#include "board.h"
-#include "periph/pwm.h"
+#include <board.h>
+#include <periph/pwm.h>
+#include <periph/gpio.h>
+
+#include <bmx280.h>
+extern bmx280_t bmx280_dev;
+
+#include "kx023-1025.h"
+#include "magneto.h"
 
 #include "shell.h"
 
@@ -131,11 +138,82 @@ static int _cmd_gnss(int argc, char **argv)
         return 0;
 }
 
+static int _cmd_atm_pressure(int argc, char **argv)
+{
+        (void) argc;
+        (void) argv;
+        int16_t temperature = bmx280_read_temperature(&bmx280_dev);
+        uint32_t pressure = bmx280_read_pressure(&bmx280_dev);
+
+        DEBUG("%d.%d C @ %ld.%ld hPa\n", temperature/100, temperature%100, pressure/100, pressure%100);
+
+        return 0;
+}
+
+static int _cmd_acc(int argc, char **argv)
+{
+    if (argc==1 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
+        DEBUG("usage: %s [on|off|get]\n", argv[0]);
+        return 0;
+    }
+    if (strncmp(argv[1], "on", 2) == 0) {
+        if (kx023_activate() == 0)
+            DEBUG("accel on\n");
+        else
+            DEBUG("accel fail\n");
+    }
+    if (strncmp(argv[1], "off", 3) == 0) {
+        if (kx023_activate() == 0)
+            DEBUG("accel off\n");
+        else
+            DEBUG("accel fail\n");
+    }
+    if (strncmp(argv[1], "get", 3) == 0) {
+        int16_t x,y,z;
+        kx023_read_accel(&x, &y, &z);
+        DEBUG("x=%d y=%d z=%d\n", x,y,z);
+    }
+    return 0;
+}
+
+static int _cmd_hrm(int argc, char **argv)
+{
+    if (argc==1 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
+        DEBUG("usage: %s [on|off|get]\n", argv[0]);
+        return 0;
+    }
+    if (strncmp(argv[1], "on", 2) == 0) {
+        gpio_set(HRM_PWR);
+    }
+    if (strncmp(argv[1], "off", 3) == 0) {
+        gpio_clear(HRM_PWR);
+    }
+
+    return 0;
+}
+
+static int _cmd_mag(int argc, char **argv)
+{
+    (void) argc;
+    (void) argv;
+    int16_t x,y,z;
+    int ret;
+
+    ret = magneto_read(&x, &y, &z);
+    DEBUG("r=0x%02x x=%d y=%d z=%d\n", ret, x, y, z);
+
+    return 0;
+}
+
 static const shell_command_t shell_commands[] = {
+        { "acc", "accelerometer", _cmd_acc },
         { "bat", "get battery state", _cmd_bat },
         { "bl", "set LCD backlight brightness", _cmd_bl },
         { "gnss", "turn on/off GNSS/GPS", _cmd_gnss },
+        { "hrm", "turn on/off HRM", _cmd_hrm },
+        { "mag", "read mag once", _cmd_mag },
         { "off", "power off device", _cmd_off },
+        { "pr", "get athmo pressure", _cmd_atm_pressure },
         { "time", "print dttick", _cmd_time },
         { "vib", "set vibration", _cmd_vib },
         { NULL, NULL, NULL }

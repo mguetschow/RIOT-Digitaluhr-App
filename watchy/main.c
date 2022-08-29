@@ -36,11 +36,12 @@
 #include "periph/uart.h"
 #include "cst816s.h"
 
+#if 0
 #define BMX280_PARAM_I2C_DEV        I2C_DEV(2)
 #define BMX280_PARAM_I2C_ADDR       (0x76)
 #include "bmx280_params.h"
+#endif
 #include "bmx280.h"
-static bmx280_t bmx280_dev;
 
 #include "lvgl/lvgl.h"
 #include "lvgl_riot.h"
@@ -64,6 +65,8 @@ static bmx280_t bmx280_dev;
 #include "gatt-adv.h"
 
 #include "kx023-1025.h"
+#include "magneto.h"
+#include "vc31.h"
 
 #define ENABLE_DEBUG 1
 #include "debug.h"
@@ -92,6 +95,33 @@ static char nmea_line[NMEA_LINE_BUF_LEN];
 //static bool pointer_clicked=false;
 
 #define DISPLAY_TIMEOUT 5
+
+bmx280_t bmx280_dev;
+static const bmx280_params_t bmx280_params[] =
+{
+  {
+    .i2c_dev  = ATM_PRESSURE_I2C_DEV,
+    .i2c_addr = ATM_PRESSURE_I2C_ADDR,
+    .t_sb = BMX280_SB_0_5,
+    .filter = BMX280_FILTER_OFF,
+    .run_mode = BMX280_MODE_FORCED,
+    .temp_oversample = BMX280_OSRS_X1,
+    .press_oversample = BMX280_OSRS_X1,
+    .humid_oversample = BMX280_OSRS_X1,
+  }
+};
+#define BMX280_NUMOF    ARRAY_SIZE(bmx280_params)
+
+static cst816s_t _input_dev;
+static cst816s_touch_data_t _tdata;
+
+static const cst816s_params_t _cst816s_input_params = {
+	.i2c_dev = I2C_DEV(0),
+	.i2c_addr = TOUCH_I2C_ADDR,
+	.irq = TOUCH_INT,
+	.irq_flank = GPIO_FALLING,
+	.reset = TOUCH_RESET,
+};
 
 
 // %	V
@@ -161,9 +191,10 @@ bool get_power_stat(power_supply_stat_t *pwr)
 	//DEBUG("%d.%dV\n", (bvolt/1000), (bvolt%1000));
 
 #if 1
-	// linear approximation of battery % from full (4.2V) to
-	// minimum (MIN_BAT_VOLT), at the low current that the device
-	// draws the discharge curve is almost linear
+	// linear approximation of battery % from full (chg voltage 4.2V) to
+	// minimum (MIN_BAT_VOLT)
+	// at the low current that the device draws
+	// the discharge curve is almost linear
 	if (bvolt > MIN_BAT_VOLT) {
 		pwr->battery_percent = (bvolt - MIN_BAT_VOLT) / ((4200 - MIN_BAT_VOLT) / 100);
 		if (pwr->battery_percent > 100)
@@ -226,17 +257,6 @@ static void display_logo(lpm013m126_t *dev)
     }
 }
 #endif
-
-static cst816s_t _input_dev;
-static cst816s_touch_data_t _tdata;
-
-static const cst816s_params_t _cst816s_input_params = {
-	.i2c_dev = I2C_DEV(0),
-	.i2c_addr = TOUCH_I2C_ADDR,
-	.irq = TOUCH_INT,
-	.irq_flank = GPIO_FALLING,
-	.reset = TOUCH_RESET,
-};
 
 static void touch_cb(void *arg)
 {
@@ -556,6 +576,8 @@ void *event_thread(void *arg)
           // DEBUG("ev=%d\n", watchy_event_queue_length());
           ev=watchy_event_queue_get();
           switch (ev) {
+              case EV_MSEC_TICK:
+                  break;
               case EV_SEC_TICK:
                   if (watch_state.clock.tm_sec==0 || watch_state.gnss_pwr) {
                     update_main_screen();
@@ -568,7 +590,9 @@ void *event_thread(void *arg)
                     xdisplay_off();
                   }
                   break;
-              case EV_MSEC_TICK:
+              case EV_MIN_TICK:
+                  break;
+              case EV_HOUR_TICK:
                   break;
               case EV_TOUCH:
                   cst816s_read(&_input_dev, &_tdata);
@@ -616,14 +640,17 @@ void *event_thread(void *arg)
                   }
                   break;
               case EV_ACCEL:
+                  DEBUG("acc\n");
                   break;
               case EV_MAGNETOMETER:
+                  DEBUG("mag\n");
                   break;
               case EV_GNSS:
               	  // DEBUG("g: %s\n", nmea_line);
                   handle_gnss_event(nmea_line, &watch_state);
                   break;
               case EV_ATMOSPHERE:
+                  DEBUG("atmo\n");
                   break;
               case EV_DISPLAY_TIMEOUT:
                   break;
@@ -781,6 +808,10 @@ int main(void)
 #endif
 
         kx023_init();
+
+        magneto_init();
+
+        vc31_init();
 
 	lvgl_run();
 
