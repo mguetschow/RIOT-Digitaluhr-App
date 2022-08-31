@@ -99,13 +99,20 @@ static lv_obj_t *create_weather_now_screen(void)
 static lv_obj_t *create_weather_24_screen(void)
 {
     lv_obj_t *lv_weather_24_screen;
+    lv_obj_t *label;
 
     lv_weather_24_screen = lv_obj_create(NULL);
+
+    label = lv_label_create(lv_weather_24_screen);
+    lv_label_set_recolor(label, true);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, LV_STATE_DEFAULT);
+    lv_obj_set_pos(label, 10, 90);
+    lv_label_set_text(label, "#ffffff To be done.# ");
 
     return lv_weather_24_screen;
 }
 
-static bool event_trigger(watchy_event_t event)
+static bool weather_now_event_trigger(watchy_event_t event)
 {
     if (event  == EV_MIN_TICK)
       update_weather_now();
@@ -113,15 +120,22 @@ static bool event_trigger(watchy_event_t event)
     return false;
 }
 
+static bool weather_24_event_trigger(watchy_event_t event)
+{
+    if (event  == EV_MIN_TICK) {
+      
+    }
+    return false;
+}
 
 struct screen weather_now_screen = {
     .left = NULL, // left
-    .right = &weather_now_screen, // right
+    .right = &weather_24_screen, // right
     .top = &main_screen, // top
     .bottom = NULL, // bottom
     .create = &create_weather_now_screen,
     .cleanup = NULL,
-    .event_trigger = &event_trigger,
+    .event_trigger = &weather_now_event_trigger,
 };
 
 struct screen weather_24_screen = {
@@ -131,6 +145,6 @@ struct screen weather_24_screen = {
     .bottom = NULL, // bottom
     .create = &create_weather_24_screen,
     .cleanup = NULL,
-    .event_trigger = &event_trigger,
+    .event_trigger = &weather_24_event_trigger,
 };
 
