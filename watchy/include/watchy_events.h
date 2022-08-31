@@ -23,9 +23,10 @@ typedef enum {
     EV_ATMOSPHERE,	// athmosphere sensor (pressure)
     EV_DISPLAY_TIMEOUT,	// display timeout (backlight off, disp off etc.)
     EV_POWER_CHANGE,	// ext power (dis-)connected or other power event
+    EV_UPDATE_DISPLAY,	// display content changed, needs update
 } watchy_event_t;
 
-#define WATCHY_EVENT_QUEUE_LENGTH 4
+#define WATCHY_EVENT_QUEUE_LENGTH 8
 
 typedef struct {
     watchy_event_t events[WATCHY_EVENT_QUEUE_LENGTH];

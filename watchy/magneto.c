@@ -80,9 +80,9 @@ int magneto_init(void)
     if (i2c_read_regs(MAGN_I2C_DEV, MAGN_I2C_ADDR, MAGNETO_SINGLE, &val, 1, 0) < 0) {
         goto fail;
     }
-    if (val == 0x22)
-        DEBUG("magneto found\n");
-    else
+    if (val == 0x22) {
+        // DEBUG("magneto found\n");
+    } else
         DEBUG("magneto 0x3e=0x%02x\n", val);
 
     i2c_release(MAGN_I2C_DEV);

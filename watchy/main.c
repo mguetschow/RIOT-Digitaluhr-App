@@ -13,41 +13,36 @@
 #endif
 #include <string.h>
 #include <time.h>
-#include "byteorder.h"
+#include <byteorder.h>
 
-#include "shell.h"
+#include <shell.h>
 //#include "shell_commands.h"
 
-#include "clk.h"
-#include "board.h"
-#include "irq.h"
-#include "periph_conf.h"
-#include "periph/gpio.h"
-#include "ringbuffer.h"
-#include "timex.h"
-#include "ztimer.h"
-#include "ztimer/periodic.h"
-#include "thread.h"
-#include "periph/pm.h"
-#include "periph/adc.h"
-#include "periph/spi.h"
-#include "periph/pwm.h"
-#include "periph/i2c.h"
-#include "periph/uart.h"
-#include "cst816s.h"
+#include <clk.h>
+#include <board.h>
+#include <irq.h>
+#include <periph_conf.h>
+#include <periph/gpio.h>
+#include <ringbuffer.h>
+#include <timex.h>
+#include <ztimer.h>
+#include <ztimer/periodic.h>
+#include <thread.h>
+#include <periph/pm.h>
+#include <periph/adc.h>
+#include <periph/spi.h>
+#include <periph/pwm.h>
+#include <periph/i2c.h>
+#include <periph/uart.h>
+#include <cst816s.h>
 
-#if 0
-#define BMX280_PARAM_I2C_DEV        I2C_DEV(2)
-#define BMX280_PARAM_I2C_ADDR       (0x76)
-#include "bmx280_params.h"
-#endif
-#include "bmx280.h"
+#include <bmx280.h>
 
-#include "lvgl/lvgl.h"
-#include "lvgl_riot.h"
-#include "disp_dev.h"
+#include <lvgl/lvgl.h>
+#include <lvgl_riot.h>
+#include <disp_dev.h>
 
-#include "minmea.h"
+#include <minmea.h>
 
 #include "watchy.h"
 #include "watchy_events.h"
@@ -68,6 +63,10 @@
 #include "magneto.h"
 #include "vc31.h"
 
+#include "weatherstation.h"
+
+#include <screens.h>
+
 #define ENABLE_DEBUG 1
 #include "debug.h"
 
@@ -84,9 +83,6 @@ static kernel_pid_t event_thread_pid=0;
 //static power_supply_stat_t pwr_stat = { false, false, 0, 0 };
 
 watchy_state_t watch_state;
-
-static lv_obj_t *lv_main_screen=NULL;
-static lv_obj_t *lv_second_screen=NULL;
 
 static char nmea_line[NMEA_LINE_BUF_LEN];
 
@@ -277,7 +273,7 @@ static void _push_button_cb(void *arg)
         button_ev = ztimer_now(ZTIMER_MSEC) - last_time_pressed;
     } else {
         last_time_pressed = ztimer_now(ZTIMER_MSEC);
-        button_ev=1;
+        button_ev = 1;
     }
     watchy_event_queue_add(EV_BUTTON);
     thread_wakeup(event_thread_pid);
@@ -288,7 +284,7 @@ static void _ext_power_cb(void *arg)
     (void) arg;
     
     watchy_event_queue_add(EV_POWER_CHANGE);
-    thread_wakeup(event_thread_pid);
+    // thread_wakeup(event_thread_pid);
 }
 
 
@@ -357,137 +353,6 @@ static void print_tdata(cst816s_touch_data_t *tdat)
 }
 #endif
 
-//extern lv_font_t SourceSansProRegular14_1bpp;
-extern lv_font_t SourceSansProSemiBold14_4bpp;
-extern lv_font_t SourceSansProSemiBold18_4bpp;
-extern lv_font_t SourceSansProSemiBold36_num_4bpp;
-extern lv_font_t SourceSansProSemiBold48_num_4bpp;
-extern lv_font_t SourceSansProBold72_num_4bpp;
-
-lv_obj_t *clock_label=NULL;
-lv_obj_t *date_label=NULL;
-lv_obj_t *bat_label=NULL;
-lv_obj_t *icon_label=NULL;
-
-static void msgbox_event_cb(lv_event_t * e)
-{
-    lv_obj_t * obj = lv_event_get_current_target(e);
-    lv_obj_t *mbox = lv_event_get_user_data(e);
-
-    DEBUG("Button %s clicked\n", lv_msgbox_get_active_btn_text(obj));
-
-    if (strcmp("OK", lv_msgbox_get_active_btn_text(obj))==0)
-      board_power_off();
-
-    lv_msgbox_close(mbox);
-}
-
-void power_off_dialog(lv_obj_t *par)
-{
-    static const char * btns[] = {"OK", "Cancel", ""};
-
-    lv_obj_t * mbox1 = lv_msgbox_create(par, "Power Off", "Are you sure?", btns, false);
-    lv_obj_set_style_bg_color(mbox1, lv_color_black(), LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(mbox1, &SourceSansProSemiBold14_4bpp, LV_STATE_DEFAULT);
-    lv_obj_add_event_cb(mbox1, msgbox_event_cb, LV_EVENT_VALUE_CHANGED, mbox1);
-    lv_obj_center(mbox1);
-}
-
-static const char *btnm_map[] = {LV_SYMBOL_BLUETOOTH, LV_SYMBOL_SETTINGS, "\n",
-                                  LV_SYMBOL_EYE_OPEN, LV_SYMBOL_POWER, ""};
-
-static void settings_button_handler(lv_event_t * e)
-{
-	lv_event_code_t code = lv_event_get_code(e);
-	lv_obj_t * obj = lv_event_get_target(e);
-
-	if (code == LV_EVENT_VALUE_CHANGED) {
-		uint16_t id = lv_btnmatrix_get_selected_btn(obj);
-		const char *txt = lv_btnmatrix_get_btn_text(obj, id);
-
-		DEBUG("%d: '%s' was pressed\n", id, txt);
-		switch (id) {
-			case 0:
-				watch_state.bluetooth_pwr = !watch_state.bluetooth_pwr;
-				if (watch_state.bluetooth_pwr)
-				  nimble_autoadv_start(NULL);
-                                else
-                                  nimble_autoadv_stop();
-				break;
-			case 1:
-				watch_state.gnss_pwr = !watch_state.gnss_pwr;
-				gnss_power_control(watch_state.gnss_pwr);
-				break;
-                        case 2:
-                                break;
-                        case 3:
-                                power_off_dialog(lv_obj_get_parent(obj));
-                                break;
-			default:
-				break;
-		}
-	}
-}
-
-static lv_obj_t *create_quick_settings_screen(void)
-{
-    lv_obj_t *second_screen;
-    //lv_obj_t *label;
-
-    second_screen = lv_obj_create(NULL);
-
-    lv_obj_t *btnm1 = lv_btnmatrix_create(second_screen);
-    lv_obj_set_size(btnm1, LV_HOR_RES_MAX, LV_VER_RES_MAX);
-    lv_obj_set_style_bg_color(btnm1, lv_color_black(), LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(btnm1, lv_color_make(0,0,0xff), LV_PART_ITEMS | LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_color(btnm1, lv_color_make(0,0xff,0), LV_PART_ITEMS | LV_STATE_CHECKED);
-    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_14, LV_STATE_DEFAULT);
-//    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_36, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_24, LV_STATE_DEFAULT);
-    lv_btnmatrix_set_map(btnm1, btnm_map);
-
-    lv_btnmatrix_set_btn_ctrl(btnm1, 0, LV_BTNMATRIX_CTRL_CHECKABLE);
-    lv_btnmatrix_set_btn_ctrl(btnm1, 0, watch_state.bluetooth_pwr ? LV_BTNMATRIX_CTRL_CHECKED : 0);
-
-    lv_btnmatrix_set_btn_ctrl(btnm1, 1, LV_BTNMATRIX_CTRL_CHECKABLE);
-    lv_btnmatrix_set_btn_ctrl(btnm1, 1, watch_state.gnss_pwr ? LV_BTNMATRIX_CTRL_CHECKED : 0);
-
-    lv_obj_align(btnm1, LV_ALIGN_CENTER, 0, 0);
-    lv_obj_add_event_cb(btnm1, settings_button_handler, LV_EVENT_ALL, NULL);
-
-    return second_screen;
-}
-
-static lv_obj_t *create_main_screen(void)
-{
-    lv_obj_t *main_screen;
-
-    main_screen = lv_obj_create(NULL);
-
-    bat_label=lv_label_create(main_screen);
-    lv_label_set_recolor(bat_label, true);
-    lv_obj_set_style_text_font(bat_label, &lv_font_montserrat_12, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(bat_label, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_pos(bat_label, 115, 1);
-
-    icon_label=lv_label_create(main_screen);
-    lv_label_set_recolor(icon_label, true);
-    lv_obj_set_style_text_font(icon_label, &lv_font_montserrat_12, LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(icon_label, lv_color_white(), LV_STATE_DEFAULT);
-    lv_obj_set_pos(icon_label, 1, 1);
-
-    clock_label=lv_label_create(main_screen);
-    lv_label_set_recolor(clock_label, true);
-    lv_obj_set_style_text_font(clock_label, &SourceSansProBold72_num_4bpp, LV_STATE_DEFAULT);
-    lv_obj_set_pos(clock_label, 0, 50);
-
-    date_label=lv_label_create(main_screen);
-    lv_label_set_recolor(date_label, true);
-    lv_obj_set_style_text_font(date_label, &SourceSansProSemiBold36_num_4bpp, LV_STATE_DEFAULT);
-    lv_obj_set_pos(date_label, 50, 120);
-
-    return main_screen;
-}
 
 #if 1
 static bool _xdisplay_on = false;
@@ -518,9 +383,10 @@ static void xdisplay_on(void)
 }
 #endif
 
+#if 0
 void update_main_screen(void)
 {
-	get_power_stat(&watch_state.pwr_stat);
+	// get_power_stat(&watch_state.pwr_stat);
 	if (lv_main_screen != NULL) {
 		char lstr[32];
 
@@ -563,6 +429,7 @@ void update_main_screen(void)
        lv_label_set_text(icon_label, lstr);
    }
 }
+#endif
 
 void *event_thread(void *arg)
 {
@@ -573,71 +440,80 @@ void *event_thread(void *arg)
  
     while (true) {
       while (watchy_event_queue_length()) {
-          // DEBUG("ev=%d\n", watchy_event_queue_length());
+          // DEBUG("ev=%d ", watchy_event_queue_length());
           ev=watchy_event_queue_get();
+          // DEBUG("%d\n", ev);
           switch (ev) {
               case EV_MSEC_TICK:
                   break;
               case EV_SEC_TICK:
-                  if (watch_state.clock.tm_sec==0 || watch_state.gnss_pwr) {
-                    update_main_screen();
-                    wake_lvgl=true;
-                  }
                   if (bl_timeout) {
                     bl_timeout--;
-                  } else {
-                    //lpm013m126_off();
-                    xdisplay_off();
+                    if (bl_timeout == 0) {
+                      //lpm013m126_off();
+                      xdisplay_off();
+                    }
                   }
                   break;
               case EV_MIN_TICK:
+                  // wake_lvgl=true;
+                  weather_update_readings(&watch_state.clock);
+                  get_power_stat(&watch_state.pwr_stat);
+                  // update_main_screen();
                   break;
               case EV_HOUR_TICK:
                   break;
               case EV_TOUCH:
                   cst816s_read(&_input_dev, &_tdata);
+                  // print_tdata(&_tdata);
                   watch_state.touch_state.x = _tdata.x;
                   watch_state.touch_state.y = _tdata.y;
-                  // print_tdata(&_tdata);
-                  if (bl_timeout) {
-                    if (_tdata.action == CST816S_TOUCH_UP) {
-                      if (_tdata.gesture == CST816S_GESTURE_SLIDE_UP && lv_main_screen==NULL) {
-                        lv_main_screen = create_main_screen();
-                        update_main_screen();
-                        lv_scr_load_anim(lv_main_screen, LV_SCR_LOAD_ANIM_MOVE_TOP, 250, 0, true);
-                        lv_second_screen = NULL;
-                      } else if (_tdata.gesture == CST816S_GESTURE_SLIDE_DOWN && lv_second_screen==NULL) {
-                        lv_second_screen = create_quick_settings_screen();
-                        lv_scr_load_anim(lv_second_screen, LV_SCR_LOAD_ANIM_MOVE_BOTTOM, 250, 0, true);
-                        lv_main_screen = NULL;
-                        }
-                    } else { // CST816S_TOUCH_DOWN
-                      if (_tdata.gesture == CST816S_GESTURE_SINGLE_CLICK) {
-                        watch_state.touch_state.clicked = true;
-                        // DEBUG("click %d %d\n", pointer_last_x, pointer_last_y);
-                      }
+                  if (_tdata.action == CST816S_TOUCH_UP) {
+                    switch (_tdata.gesture) {
+                      case CST816S_GESTURE_SLIDE_UP:
+                        watch_state.touch_state.gesture = TOUCH_G_SWP_UP;
+                        break;
+                      case CST816S_GESTURE_SLIDE_DOWN:
+                        watch_state.touch_state.gesture = TOUCH_G_SWP_DOWN;
+                        break;
+                      case CST816S_GESTURE_SLIDE_LEFT:
+                        watch_state.touch_state.gesture = TOUCH_G_SWP_LEFT;
+                        break;
+                      case CST816S_GESTURE_SLIDE_RIGHT:
+                        watch_state.touch_state.gesture = TOUCH_G_SWP_RIGHT;
+                        break;
+                      case CST816S_GESTURE_LONG_PRESS:
+                        watch_state.touch_state.gesture = TOUCH_G_LONG_PRESS;
+                        break;
+                      default:
+                        watch_state.touch_state.gesture = TOUCH_G_NONE;
+                        break;
                     }
                     wake_lvgl=true;
+                    xdisplay_on();
                     bl_timeout=DISPLAY_TIMEOUT;
-                  } else {
-                    if (_tdata.gesture == CST816S_GESTURE_SINGLE_CLICK) {
-                      //lpm013m126_on();
-                      xdisplay_on();
-                      bl_timeout=DISPLAY_TIMEOUT;
-                    }
-                  }
+                  } else if (_tdata.action == CST816S_TOUCH_DOWN && _tdata.gesture==CST816S_GESTURE_SINGLE_CLICK) {
+                        watch_state.touch_state.gesture = TOUCH_G_CLICK;
+                        watch_state.touch_state.clicked = true;
+                        wake_lvgl=true;
+                        xdisplay_on();
+                        bl_timeout=DISPLAY_TIMEOUT;
+                   } else
+                    watch_state.touch_state.gesture = TOUCH_G_NONE;
                   break;
               case EV_BUTTON:
                   DEBUG("btn\n");
                   bl_timeout=DISPLAY_TIMEOUT;
                   //lpm013m126_on();
                   xdisplay_on();
+#if 0
                   if (lv_main_screen==NULL) {
                       lv_main_screen = create_main_screen();
                       update_main_screen();
                       lv_scr_load_anim(lv_main_screen, LV_SCR_LOAD_ANIM_MOVE_TOP, 250, 0, true);
                       lv_second_screen = NULL;
                   }
+#endif
                   break;
               case EV_ACCEL:
                   DEBUG("acc\n");
@@ -655,16 +531,22 @@ void *event_thread(void *arg)
               case EV_DISPLAY_TIMEOUT:
                   break;
               case EV_POWER_CHANGE:
-                  update_main_screen();
+                  get_power_stat(&watch_state.pwr_stat);
+                  // update_main_screen();
                   bl_timeout=DISPLAY_TIMEOUT;
                   //lpm013m126_on();
                   xdisplay_on();
+                  // wake_lvgl = true;
+                  break;
+              case EV_UPDATE_DISPLAY:
                   wake_lvgl = true;
                   break;
               default:
                   DEBUG("no event?\n");
                   break;
           }; // switch()
+          // when system is done let the screen know
+          screens_handle_event(ev);
       } // while (ev)
       // once done with all events, do housekeeping
       if (wake_lvgl) {
@@ -682,21 +564,23 @@ static bool rtc_second_cb(void *arg)
 {
    (void) arg;
 
+   watchy_event_queue_add(EV_SEC_TICK);
+
    watch_state.clock.tm_sec++;
    if (watch_state.clock.tm_sec > 59) {
      watch_state.clock.tm_sec=0;
      watch_state.clock.tm_min++;
+     watchy_event_queue_add(EV_MIN_TICK);
    }
    if (watch_state.clock.tm_min > 59) {
      watch_state.clock.tm_min=0;
      watch_state.clock.tm_hour++;
+     watchy_event_queue_add(EV_HOUR_TICK);
    }
    if (watch_state.clock.tm_hour > 23) {
      watch_state.clock.tm_hour=0;
      watch_state.clock.tm_mday++;
    }
-
-   watchy_event_queue_add(EV_SEC_TICK);
 
    thread_wakeup(event_thread_pid);
 
@@ -779,20 +663,21 @@ int main(void)
 	indev_drv.read_cb = lv_input_cb;
 	lv_indev_drv_register(&indev_drv);
 
-
+#if 0
 	// DEBUG("c=%d\n", sizeof(lv_color_t));
 	lv_main_screen = create_main_screen();
 	update_main_screen();
 	lv_second_screen = NULL;
 
 	lv_disp_load_scr(lv_main_screen);
-
+#else
+        screens_init();
+#endif
 	watchy_event_queue_add(EV_SEC_TICK);
 	thread_wakeup(event_thread_pid);
 
 	watchy_gatt_init();
 
-#if 1
 	switch (bmx280_init(&bmx280_dev, &bmx280_params[0])) {
         case BMX280_ERR_BUS:
             DEBUG("[Error] Something went wrong when using the I2C bus");
@@ -804,14 +689,16 @@ int main(void)
             /* all good -> do nothing */
             break;
         }
-        DEBUG("BMX280 Initialization successful\n");
-#endif
+        // DEBUG("BMX280 Initialization successful\n");
 
         kx023_init();
 
         magneto_init();
 
         vc31_init();
+
+        weatherstation_init();
+        weather_update_readings(&watch_state.clock);
 
 	lvgl_run();
 

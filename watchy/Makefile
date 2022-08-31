@@ -16,6 +16,8 @@ RIOTBASE ?= $(CURDIR)/../../RIOT-Digitaluhr
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
+CFLAGS += -I$(CURDIR)/include/
+
 USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
@@ -36,6 +38,7 @@ USEMODULE += lvgl_widget_btn
 USEMODULE += lvgl_widget_btnmatrix
 USEMODULE += lvgl_extra_layout_flex
 USEMODULE += lvgl_extra_widget_msgbox
+USEMODULE += lvgl_extra_widget_meter
 
 USEMODULE += lvgl_misc
 USEMODULE += lvgl_draw
@@ -95,6 +98,6 @@ CFLAGS += -DRTT_CONSOLE
 #CFLAGS += -DISR_STACKSIZE=512
 CFLAGS += -DTHREAD_STACKSIZE_MAIN=THREAD_STACKSIZE_LARGE+THREAD_EXTRA_STACKSIZE_PRINTF
 
-CFLAGS += -DLV_COLOR_DEPTH=8 -DLV_HOR_RES_MAX=176 -DLV_VER_RES_MAX=176 -DLV_CONF_INCLUDE_SIMPLE -DLV_CONF_PATH="$(CURDIR)/lv_conf_watchy.h"
+CFLAGS += -DLV_HOR_RES_MAX=176 -DLV_VER_RES_MAX=176 -DLV_CONF_INCLUDE_SIMPLE -DLV_CONF_PATH="$(CURDIR)/lv_conf_watchy.h"
 
 include $(RIOTBASE)/Makefile.include

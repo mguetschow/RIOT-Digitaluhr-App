@@ -289,7 +289,7 @@ int vc31_init(void)
         goto fail;
     } else {
         // expect 17 / 0x11 (VC31) or 33 / 0x21 (VC31B)
-        DEBUG("VC31 found 0x%02x\n", val);
+        //DEBUG("VC31 found 0x%02x\n", val);
     }
     i2c_release(HRM_I2C_DEV);
     gpio_init_int(HRM_INT, GPIO_IN, GPIO_RISING, _vc31_int, NULL);

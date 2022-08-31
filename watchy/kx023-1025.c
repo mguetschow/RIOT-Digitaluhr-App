@@ -160,7 +160,7 @@ int kx023_init(void)
     }
 
     if (whoami == 0x14) { // in the BangleJS2 the ID is 0x14
-        DEBUG("KX023 found, COTR=0x%02x\n", cotr);
+        //DEBUG("KX023 found, COTR=0x%02x\n", cotr);
         gpio_init_int(ACCEL_INT, GPIO_IN, GPIO_RISING, _kx023_int, NULL);
     } else {
         DEBUG("KX023 _not_ found 0x%02x\n", whoami);

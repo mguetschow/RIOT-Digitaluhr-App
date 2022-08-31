@@ -30,6 +30,7 @@ typedef struct {
 typedef enum {
     TOUCH_G_NONE = 0,
     TOUCH_G_CLICK,
+    TOUCH_G_LONG_PRESS,
     TOUCH_G_SWP_UP,
     TOUCH_G_SWP_DOWN,
     TOUCH_G_SWP_LEFT,
@@ -44,6 +45,24 @@ typedef struct {
 } touchscreen_state_t;
 
 typedef struct {
+    bool active;
+    int16_t x;
+    int16_t y;
+    int16_t z;
+} accel_state_t;
+
+typedef struct {
+    bool active;
+    uint16_t x;
+    uint16_t y;
+    uint16_t z;
+} magnetometer_state_t;
+
+typedef struct {
+    bool active;
+} hrm_state_t;
+
+typedef struct {
     struct tm clock;			// the clock - it's a watch!
     uint8_t display_timeout;		// how long until sleep display
     power_supply_stat_t pwr_stat;	// current power supply state
@@ -51,6 +70,9 @@ typedef struct {
     bool bluetooth_pwr;			// if Bluetooth is powered
     gnss_state_t gnss_state;		// GNSS/GPS sensor state
     touchscreen_state_t touch_state;	// touchscreen state (last x/y etc.)
+    accel_state_t accel_state;
+    magnetometer_state_t magnetometer_state;
+    hrm_state_t hrm_state;
 } watchy_state_t;
 
 extern watchy_state_t watch_state;

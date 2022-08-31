@@ -36,7 +36,7 @@ extern "C" {
  * - 32: ARGB8888
  */
 #ifndef LV_COLOR_DEPTH
-#define LV_COLOR_DEPTH     16
+#define LV_COLOR_DEPTH     8
 #endif
 
 /* Swap the 2 bytes of RGB565 color.
