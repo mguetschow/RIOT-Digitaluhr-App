@@ -449,10 +449,9 @@ void *event_thread(void *arg)
               case EV_SEC_TICK:
                   if (bl_timeout) {
                     bl_timeout--;
-                    if (bl_timeout == 0) {
+                  } else {
                       //lpm013m126_off();
                       xdisplay_off();
-                    }
                   }
                   break;
               case EV_MIN_TICK:
