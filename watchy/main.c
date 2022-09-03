@@ -220,9 +220,11 @@ void gnss_power_control(bool pwr)
 {
 	if (pwr) {
 		watch_state.gnss_pwr = true;
+		uart_poweron(UART_DEV(0));
 		gpio_set(GPS_PWR);
 	} else {
 		watch_state.gnss_pwr = false;
+		uart_poweroff(UART_DEV(0));
 		gpio_clear(GPS_PWR);
 		watch_state.gnss_state.fix_valid = false;
 		watch_state.gnss_state.sats_in_fix = 0;
@@ -643,7 +645,9 @@ int main(void)
 	// GNSS/GPS UART, 9600baud default
 	if (uart_init(UART_DEV(0), 9600, uart_rx_cb, NULL)) {
 		DEBUG("error configuring 9600 baud\n");
-	}
+	} else
+                uart_poweroff(UART_DEV(0));
+
 
 	event_thread_pid=thread_create(event_thread_stack, sizeof(event_thread_stack),
 		THREAD_PRIORITY_IDLE - 1, THREAD_CREATE_STACKTEST,
