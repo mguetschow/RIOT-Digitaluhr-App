@@ -28,6 +28,7 @@
 #include <ztimer.h>
 #include <ztimer/periodic.h>
 #include <thread.h>
+#include <tm.h>
 #include <periph/pm.h>
 #include <periph/adc.h>
 #include <periph/spi.h>
@@ -210,27 +211,11 @@ bool get_power_stat(power_supply_stat_t *pwr)
 
 	pwr->charger_present = !gpio_read(EXTPOWER_PRESENT);
 
-	pwr->charge_complete = gpio_read(CHARGE_COMPLETE);
+	pwr->charge_complete = !gpio_read(CHARGE_COMPLETE);
 
 	return true;
 }
 
-
-void gnss_power_control(bool pwr)
-{
-	if (pwr) {
-		watch_state.gnss_pwr = true;
-		uart_poweron(UART_DEV(0));
-		gpio_set(GPS_PWR);
-	} else {
-		watch_state.gnss_pwr = false;
-		uart_poweroff(UART_DEV(0));
-		gpio_clear(GPS_PWR);
-		watch_state.gnss_state.fix_valid = false;
-		watch_state.gnss_state.sats_in_fix = 0;
-		watch_state.gnss_state.sats_in_view = 0;
-	}
-}
 
 #if 0
 static lpm013m126_t _disp_dev;
@@ -385,53 +370,6 @@ static void xdisplay_on(void)
 }
 #endif
 
-#if 0
-void update_main_screen(void)
-{
-	// get_power_stat(&watch_state.pwr_stat);
-	if (lv_main_screen != NULL) {
-		char lstr[32];
-
-       //snprintf(lstr, 15, "%02d:%02d:%02d", _my_time.tm_hour, _my_time.tm_min, _my_time.tm_sec);
-       //snprintf(lstr, 15, "%02d%s :#%02d", _my_time.tm_hour, (_my_time.tm_sec%2)?"#00ff00":"#ff0000", _my_time.tm_min);
-       snprintf(lstr, 15, "%02d:%02d", watch_state.clock.tm_hour, watch_state.clock.tm_min);
-       lv_label_set_text(clock_label, lstr);
-       // DEBUG("%s\n", lstr);
-       snprintf(lstr, 15, "%d.%d.", watch_state.clock.tm_mday, watch_state.clock.tm_mon+1);
-       lv_label_set_text(date_label, lstr);
-
-       snprintf(lstr, 15, "%d%% ", watch_state.pwr_stat.battery_percent);
-       strcat(lstr, watch_state.pwr_stat.charger_present ? LV_SYMBOL_CHARGE " " : " ");
-       if (watch_state.pwr_stat.battery_percent > 80)
-           strcat(lstr, LV_SYMBOL_BATTERY_FULL);
-       else if (watch_state.pwr_stat.battery_percent > 60)
-           strcat(lstr, LV_SYMBOL_BATTERY_3);
-       else if (watch_state.pwr_stat.battery_percent > 40)
-           strcat(lstr, LV_SYMBOL_BATTERY_3);
-       else if (watch_state.pwr_stat.battery_percent > 20)
-           strcat(lstr, LV_SYMBOL_BATTERY_1);
-       else
-           strcat(lstr, "#ff0000 " LV_SYMBOL_BATTERY_EMPTY "#");
-       lv_label_set_text(bat_label, lstr);
-
-       memset(lstr, 0, 32);
-       if (watch_state.bluetooth_pwr) {
-         strncat(lstr,"#ffffff " LV_SYMBOL_BLUETOOTH "# ", 31);
-       }
-       if (watch_state.gnss_pwr) {
-           char satnum[16];
-           snprintf(satnum, 15, "%d/%d", watch_state.gnss_state.sats_in_fix, watch_state.gnss_state.sats_in_view);
-           if (watch_state.gnss_state.fix_valid) {
-               strncat(lstr,"#00ff00 " LV_SYMBOL_GPS "# ", 31);
-           } else {
-               strncat(lstr,"#ffffff " LV_SYMBOL_GPS "# ", 31);
-           }
-           strncat(lstr, satnum, 31);
-       }
-       lv_label_set_text(icon_label, lstr);
-   }
-}
-#endif
 
 void *event_thread(void *arg)
 {
@@ -542,6 +480,8 @@ void *event_thread(void *arg)
               case EV_UPDATE_DISPLAY:
                   wake_lvgl = true;
                   break;
+              case EV_INFO_NOTE:
+                  break;
               default:
                   DEBUG("no event?\n");
                   break;
@@ -581,6 +521,7 @@ static bool rtc_second_cb(void *arg)
    if (watch_state.clock.tm_hour > 23) {
      watch_state.clock.tm_hour=0;
      watch_state.clock.tm_mday++;
+     tm_fill_derived_values(&watch_state.clock);
    }
 
    thread_wakeup(event_thread_pid);
@@ -606,7 +547,6 @@ void lv_input_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 }
 
 
-
 int main(void)
 {
 	static ztimer_periodic_t timer;
@@ -625,8 +565,9 @@ int main(void)
 	ztimer_periodic_start(&timer);
 
 	watch_state.gnss_pwr = false;
-	watch_state.bluetooth_pwr = false;
+	watch_state.bluetooth_pwr = BT_OFF;
 
+	strncpy(watch_state.info, "This is a way too long text to be displayed in these two lines" , 63);
 	// init LCD, display logo and enable backlight
 	// lpm013m126_init(&_disp_dev, &lpm013m126_params);
 	// display_logo(&_disp_dev);

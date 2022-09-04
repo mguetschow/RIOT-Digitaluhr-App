@@ -23,6 +23,7 @@ USEMODULE += shell_commands
 USEMODULE += ps
 USEMODULE += ztimer_sec
 USEMODULE += ztimer_msec
+USEMODULE += timex
 ifneq ($(BOARD),native)
 USEMODULE += i2c_scan
 endif

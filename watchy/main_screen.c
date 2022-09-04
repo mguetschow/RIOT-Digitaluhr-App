@@ -8,6 +8,9 @@
 #include "watchy.h"
 
 static lv_obj_t *top_left_icons, *top_middle_icons, *top_right_icons, *clockl, *datel;
+static lv_obj_t *info;
+
+static const char *dayname[]={"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
 
 #define MAX_LABEL_LEN 128
 static void update_screen(void)
@@ -17,17 +20,16 @@ static void update_screen(void)
      // date and time
      snprintf(label_text, MAX_LABEL_LEN-1, "%02d:%02d", watch_state.clock.tm_hour, watch_state.clock.tm_min);
      lv_label_set_text(clockl, label_text);
-     snprintf(label_text, MAX_LABEL_LEN-1, "%d.%d.", watch_state.clock.tm_mday, watch_state.clock.tm_mon+1);
+
+     snprintf(label_text, MAX_LABEL_LEN-1, "%s %d.%d.", dayname[watch_state.clock.tm_wday], watch_state.clock.tm_mday, watch_state.clock.tm_mon+1);
      lv_label_set_text(datel, label_text);
 
      // icons in the top left
      memset(label_text, 0, MAX_LABEL_LEN);
-     if (watch_state.bluetooth_pwr)
+     if (watch_state.bluetooth_pwr == BT_ON)
        strncat(label_text, "#ffffff " LV_SYMBOL_BLUETOOTH "# ", MAX_LABEL_LEN-1);
-#if 0
-     else
-       strncat(label_text, "#808080 " LV_SYMBOL_BLUETOOTH "# ", MAX_LABEL_LEN-1);
-#endif
+     else if (watch_state.bluetooth_pwr == BT_CONN)
+       strncat(label_text, "#0000ff " LV_SYMBOL_BLUETOOTH "# ", MAX_LABEL_LEN-1);
 
      if (watch_state.gnss_pwr) {
        char satnum[16];
@@ -43,24 +45,29 @@ static void update_screen(void)
 
      // icons in the top middle
      memset(label_text, 0, MAX_LABEL_LEN);
-     strncat(label_text, "#ffffff " LV_SYMBOL_WARNING "# ", MAX_LABEL_LEN-1);
+     strncat(label_text, "#ff0000 " LV_SYMBOL_WARNING "# ", MAX_LABEL_LEN-1);
      lv_label_set_text(top_middle_icons, label_text);
      
 
      // icons in the top right
      strcpy(label_text, watch_state.pwr_stat.charger_present ? LV_SYMBOL_CHARGE : " ");
-     if (watch_state.pwr_stat.battery_percent > 80)
-        strcat(label_text, LV_SYMBOL_BATTERY_FULL);
-     else if (watch_state.pwr_stat.battery_percent > 60)
+     if (watch_state.pwr_stat.battery_percent > 80) {
+        if (watch_state.pwr_stat.charge_complete)
+          strcat(label_text, "#00ff00 " LV_SYMBOL_BATTERY_FULL "# ");
+        else
+          strcat(label_text, LV_SYMBOL_BATTERY_FULL);
+     } else if (watch_state.pwr_stat.battery_percent > 60)
         strcat(label_text, LV_SYMBOL_BATTERY_3);
      else if (watch_state.pwr_stat.battery_percent > 40)
         strcat(label_text, LV_SYMBOL_BATTERY_3);
      else if (watch_state.pwr_stat.battery_percent > 20)
         strcat(label_text, LV_SYMBOL_BATTERY_1);
      else
-        strcat(label_text, "#ff0000 " LV_SYMBOL_BATTERY_EMPTY "#");
+        strcat(label_text, "#ff0000 " LV_SYMBOL_BATTERY_EMPTY "# ");
 
      lv_label_set_text(top_right_icons, label_text);
+
+     lv_label_set_text(info, watch_state.info);
 
      watchy_event_queue_add(EV_UPDATE_DISPLAY);
 }
@@ -74,28 +81,40 @@ static lv_obj_t *create_main_screen(void)
 
      top_left_icons=lv_label_create(scr);
      lv_label_set_recolor(top_left_icons, true);
-     lv_obj_set_style_text_font(top_left_icons, &lv_font_montserrat_12, LV_STATE_DEFAULT);
-     lv_obj_set_pos(top_left_icons, 1, 1);
+     lv_obj_set_style_text_font(top_left_icons, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+     lv_obj_set_pos(top_left_icons, 0, 0);
 
      top_middle_icons=lv_label_create(scr);
      lv_label_set_recolor(top_middle_icons, true);
-     lv_obj_set_style_text_font(top_middle_icons, &lv_font_montserrat_12, LV_STATE_DEFAULT);
-     lv_obj_set_pos(top_middle_icons, (LV_HOR_RES/2)-7, 1);
+     lv_obj_set_style_text_font(top_middle_icons, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+     lv_obj_set_pos(top_middle_icons, (LV_HOR_RES/2)-7, 0);
 
      top_right_icons=lv_label_create(scr);
-     lv_obj_set_style_text_font(top_right_icons, &lv_font_montserrat_12, LV_STATE_DEFAULT);
+     lv_label_set_recolor(top_right_icons, true);
+     lv_obj_set_style_text_font(top_right_icons, &lv_font_montserrat_14, LV_STATE_DEFAULT);
      lv_obj_set_style_text_color(top_right_icons, lv_color_white(), LV_STATE_DEFAULT);
-     lv_obj_set_pos(top_right_icons, LV_HOR_RES_MAX-24, 1);
+     lv_obj_set_pos(top_right_icons, LV_HOR_RES_MAX-32, 0);
 
      clockl=lv_label_create(scr);
      lv_obj_set_style_text_color(clockl, lv_color_white(), LV_STATE_DEFAULT);
      lv_obj_set_style_text_font(clockl, &SourceSansProBold72_num_4bpp, LV_STATE_DEFAULT);
-     lv_obj_center(clockl);
+     lv_obj_set_pos(clockl, 0, (LV_VER_RES_MAX/2)-42);
+     //lv_obj_center(clockl);
 
      datel=lv_label_create(scr);
      lv_obj_set_style_text_color(datel, lv_color_white(), LV_STATE_DEFAULT);
-     lv_obj_set_style_text_font(datel, &SourceSansProSemiBold36_num_4bpp, LV_STATE_DEFAULT);
-     lv_obj_set_pos(datel, (LV_HOR_RES_MAX / 2)-30, (LV_VER_RES_MAX/2)+26);
+     //lv_obj_set_style_text_font(datel, &SourceSansProSemiBold36_num_4bpp, LV_STATE_DEFAULT);
+     lv_obj_set_style_text_font(datel, &lv_font_montserrat_24, LV_STATE_DEFAULT);
+     lv_obj_set_pos(datel, (LV_HOR_RES_MAX / 2)-50, (LV_VER_RES_MAX/2)+17);
+
+     info=lv_label_create(scr);
+     lv_label_set_recolor(info, true);
+     lv_obj_set_style_text_color(info, lv_color_white(), LV_STATE_DEFAULT);
+     lv_obj_set_style_text_font(info, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+     lv_obj_set_pos(info, 0, (LV_VER_RES_MAX-32));
+     lv_label_set_long_mode(info, LV_LABEL_LONG_WRAP);
+     lv_obj_set_width(info, 175);
+     lv_obj_set_height(info, 32);
 
      // give all dynamic elements an update
      update_screen();
@@ -112,12 +131,14 @@ static bool event_trigger(watchy_event_t event)
 {
      switch(event) {
        case EV_SEC_TICK:
+         // if the gnss is running update screen every 10 seconds
          if (watch_state.gnss_pwr && ((watch_state.clock.tm_sec % 10)==0)) {
            update_screen();
          }
          break;
        case EV_MIN_TICK:
        case EV_POWER_CHANGE:
+       case EV_INFO_NOTE:
          update_screen();
          break;
        default:

@@ -13,15 +13,16 @@
 #include <bmx280.h>
 extern bmx280_t bmx280_dev;
 
-#include "kx023-1025.h"
-#include "magneto.h"
-
-#include "shell.h"
+#include <shell.h>
 
 #define ENABLE_DEBUG 1
 #include "debug.h"
 
 #include "watchy.h"
+#include "watchy_events.h"
+#include "kx023-1025.h"
+#include "magneto.h"
+#include "gnss.h"
 
 static char line_buf[SHELL_DEFAULT_BUFSIZE];
 
@@ -120,8 +121,6 @@ static int _cmd_vib(int argc, char **argv)
     return 0;
 }
 
-void gnss_power_control(bool pwr);
-
 static int _cmd_gnss(int argc, char **argv)
 {
         (void) argc;
@@ -205,12 +204,25 @@ static int _cmd_mag(int argc, char **argv)
     return 0;
 }
 
+static int _cmd_info(int argc, char **argv)
+{
+    if (argc==1 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
+        DEBUG("usage: %s [on|off|get]\n", argv[0]);
+        return 0;
+    }
+
+    strncpy(watch_state.info, argv[1], 63);
+    watchy_event_queue_add(EV_INFO_NOTE);
+    return 0;
+}
+
 static const shell_command_t shell_commands[] = {
         { "acc", "accelerometer", _cmd_acc },
         { "bat", "get battery state", _cmd_bat },
         { "bl", "set LCD backlight brightness", _cmd_bl },
         { "gnss", "turn on/off GNSS/GPS", _cmd_gnss },
         { "hrm", "turn on/off HRM", _cmd_hrm },
+        { "info", "set info text", _cmd_info },
         { "mag", "read mag once", _cmd_mag },
         { "off", "power off device", _cmd_off },
         { "pr", "get athmo pressure", _cmd_atm_pressure },

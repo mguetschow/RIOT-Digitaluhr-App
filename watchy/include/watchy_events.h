@@ -24,6 +24,7 @@ typedef enum {
     EV_DISPLAY_TIMEOUT,	// display timeout (backlight off, disp off etc.)
     EV_POWER_CHANGE,	// ext power (dis-)connected or other power event
     EV_UPDATE_DISPLAY,	// display content changed, needs update
+    EV_INFO_NOTE,	// notification or information update
 } watchy_event_t;
 
 #define WATCHY_EVENT_QUEUE_LENGTH 8

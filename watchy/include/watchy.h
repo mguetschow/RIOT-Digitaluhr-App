@@ -37,6 +37,12 @@ typedef enum {
     TOUCH_G_SWP_RIGHT,
 } touch_gesture_t;
 
+typedef enum {
+    BT_OFF = 0,
+    BT_ON,
+    BT_CONN
+} bluetooth_stat_t;
+
 typedef struct {
     uint16_t x;
     uint16_t y;
@@ -67,12 +73,13 @@ typedef struct {
     uint8_t display_timeout;		// how long until sleep display
     power_supply_stat_t pwr_stat;	// current power supply state
     bool gnss_pwr;			// if GNSS is powered up or not
-    bool bluetooth_pwr;			// if Bluetooth is powered
+    bluetooth_stat_t bluetooth_pwr;			// if Bluetooth is powered
     gnss_state_t gnss_state;		// GNSS/GPS sensor state
     touchscreen_state_t touch_state;	// touchscreen state (last x/y etc.)
     accel_state_t accel_state;
     magnetometer_state_t magnetometer_state;
     hrm_state_t hrm_state;
+    char info[64];
 } watchy_state_t;
 
 extern watchy_state_t watch_state;
