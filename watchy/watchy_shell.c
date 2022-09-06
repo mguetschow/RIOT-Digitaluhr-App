@@ -1,8 +1,8 @@
 #ifdef RTT_CONSOLE
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdio_rtt.h>
 #endif
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 

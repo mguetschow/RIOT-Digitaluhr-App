@@ -75,11 +75,16 @@ USEMODULE += luid
 USEMODULE += fmt
 USEMODULE += event_timeout
 
-USEMODULE += mtd
-USEMODULE += mtd_mapper
-USEMODULE += vfs
-USEPKG += littlefs
-USEMODULE += littlefs_fs
+#USEMODULE += mtd
+#USEMODULE += mtd_mapper
+#USEMODULE += vfs
+USEMODULE += vfs_default
+#USEPKG += littlefs2
+#USEMODULE += constfs
+#USEMODULE += devfs
+
+# Enable to automatically format if mount fails
+USEMODULE += vfs_auto_format
 
 USEMODULE += bmx280
 
@@ -95,7 +100,7 @@ FEATURES_REQUIRED += periph_gpio_irq
 FEATURES_REQUIRED += periph_uart
 
 
-CFLAGS += -DRTT_CONSOLE
+#CFLAGS += -DRTT_CONSOLE
 #CFLAGS += -DISR_STACKSIZE=512
 CFLAGS += -DTHREAD_STACKSIZE_MAIN=THREAD_STACKSIZE_LARGE+THREAD_EXTRA_STACKSIZE_PRINTF
 

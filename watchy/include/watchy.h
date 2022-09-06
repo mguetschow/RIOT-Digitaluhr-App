@@ -79,7 +79,8 @@ typedef struct {
     accel_state_t accel_state;
     magnetometer_state_t magnetometer_state;
     hrm_state_t hrm_state;
-    char info[64];
+    bool notification;			// toggles '!' icon in top row
+    char info[64];			// two line info text on bottom of main screen
 } watchy_state_t;
 
 extern watchy_state_t watch_state;

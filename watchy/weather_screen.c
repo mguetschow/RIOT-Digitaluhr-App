@@ -26,12 +26,12 @@ static void update_weather_now(void)
     char lstr[32];
 
     wp=weather_get_current();
-    lv_meter_set_indicator_value(meter, indic, wp->pressure/100);
+    lv_meter_set_indicator_value(meter, indic, (wp->pressure/100)+(230/10));
     
     snprintf(lstr, 31, "#000000 %d.%d°C# ", wp->temp/100, (wp->temp%100)/10);
     lv_label_set_text(tlabel, lstr);
 
-    snprintf(lstr, 31, "#000000 %ld.%ldhpa# ", wp->pressure/100, (wp->pressure%100)/10);
+    snprintf(lstr, 31, "#000000 %ld.%ld hPa# ", wp->pressure/100, (wp->pressure%100)/10);
     lv_label_set_text(plabel, lstr);
 
     watchy_event_queue_add(EV_UPDATE_DISPLAY);
@@ -50,7 +50,8 @@ static lv_obj_t *create_weather_now_screen(void)
     /*Add a scale first*/
     lv_meter_scale_t * scale = lv_meter_add_scale(meter);
     //lv_meter_set_scale_ticks(meter, scale, 41, 2, 10, lv_palette_main(LV_PALETTE_GREY));
-    lv_meter_set_scale_major_ticks(meter, scale, 8, 4, 15, lv_color_black(), 10);
+    lv_meter_set_scale_ticks(meter, scale, 3, 2, 10, lv_color_black());
+    //lv_meter_set_scale_major_ticks(meter, scale, 8, 4, 15, lv_color_black(), 10);
 
 #if 0
     /*Add a blue arc to the start*/
@@ -77,7 +78,7 @@ static lv_obj_t *create_weather_now_screen(void)
 #endif
 
     // a scale from 950mbar to 1070mbar, total angle 300°, 120° turned
-    lv_meter_set_scale_range(meter, scale, 950, 1070, 300, 120);
+    lv_meter_set_scale_range(meter, scale, 950, 1076, 300, 120);
     /*Add a needle line indicator*/
     indic = lv_meter_add_needle_line(meter, scale, 4, lv_color_black(), -10);
 
@@ -88,8 +89,8 @@ static lv_obj_t *create_weather_now_screen(void)
 
     plabel = lv_label_create(lv_weather_now_screen);
     lv_label_set_recolor(plabel, true);
-    lv_obj_set_style_text_font(plabel, &lv_font_montserrat_14, LV_STATE_DEFAULT);
-    lv_obj_set_pos(plabel, (176/2)-30, 120);
+    lv_obj_set_style_text_font(plabel, &lv_font_montserrat_16, LV_STATE_DEFAULT);
+    lv_obj_set_pos(plabel, (176/2)-34, 120);
 
     update_weather_now();
 
@@ -132,7 +133,7 @@ struct screen weather_now_screen = {
     .left = NULL, // left
     .right = &weather_24_screen, // right
     .top = &main_screen, // top
-    .bottom = NULL, // bottom
+    .bottom = &gnss_screen, // bottom
     .create = &create_weather_now_screen,
     .cleanup = NULL,
     .event_trigger = &weather_now_event_trigger,
@@ -142,7 +143,7 @@ struct screen weather_24_screen = {
     .left = &weather_now_screen, // left
     .right = NULL, // right
     .top = &main_screen, // top
-    .bottom = NULL, // bottom
+    .bottom = &gnss_screen, // bottom
     .create = &create_weather_24_screen,
     .cleanup = NULL,
     .event_trigger = &weather_24_event_trigger,

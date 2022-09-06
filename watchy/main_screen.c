@@ -8,7 +8,7 @@
 #include "watchy.h"
 
 static lv_obj_t *top_left_icons, *top_middle_icons, *top_right_icons, *clockl, *datel;
-static lv_obj_t *info;
+static lv_obj_t *weather, *info;
 
 static const char *dayname[]={"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
 
@@ -45,7 +45,8 @@ static void update_screen(void)
 
      // icons in the top middle
      memset(label_text, 0, MAX_LABEL_LEN);
-     strncat(label_text, "#ff0000 " LV_SYMBOL_WARNING "# ", MAX_LABEL_LEN-1);
+     if (watch_state.notification)
+       strncat(label_text, "#ff0000 " LV_SYMBOL_WARNING "# ", MAX_LABEL_LEN-1);
      lv_label_set_text(top_middle_icons, label_text);
      
 
@@ -66,6 +67,8 @@ static void update_screen(void)
         strcat(label_text, "#ff0000 " LV_SYMBOL_BATTERY_EMPTY "# ");
 
      lv_label_set_text(top_right_icons, label_text);
+
+     lv_label_set_text(weather, LV_SYMBOL_DOWN " " LV_SYMBOL_UP " " LV_SYMBOL_MINUS " " LV_SYMBOL_PLUS);
 
      lv_label_set_text(info, watch_state.info);
 
@@ -98,23 +101,34 @@ static lv_obj_t *create_main_screen(void)
      clockl=lv_label_create(scr);
      lv_obj_set_style_text_color(clockl, lv_color_white(), LV_STATE_DEFAULT);
      lv_obj_set_style_text_font(clockl, &SourceSansProBold72_num_4bpp, LV_STATE_DEFAULT);
-     lv_obj_set_pos(clockl, 0, (LV_VER_RES_MAX/2)-42);
+     lv_obj_set_pos(clockl, 0, (LV_VER_RES_MAX/2)-65);
      //lv_obj_center(clockl);
 
      datel=lv_label_create(scr);
      lv_obj_set_style_text_color(datel, lv_color_white(), LV_STATE_DEFAULT);
      //lv_obj_set_style_text_font(datel, &SourceSansProSemiBold36_num_4bpp, LV_STATE_DEFAULT);
      lv_obj_set_style_text_font(datel, &lv_font_montserrat_24, LV_STATE_DEFAULT);
-     lv_obj_set_pos(datel, (LV_HOR_RES_MAX / 2)-50, (LV_VER_RES_MAX/2)+17);
+     //lv_obj_set_pos(datel, (LV_HOR_RES_MAX / 2)-55, (LV_VER_RES_MAX/2)-10);
+     lv_obj_set_pos(datel, 0, (LV_VER_RES_MAX/2)-10);
+     lv_obj_set_width(datel, 175);
+     lv_obj_set_style_text_align(datel, LV_TEXT_ALIGN_CENTER, 0);
+
+     weather=lv_label_create(scr);
+     lv_label_set_recolor(weather, true);
+     lv_obj_set_style_text_color(weather, lv_color_white(), LV_STATE_DEFAULT);
+     lv_obj_set_style_text_font(weather, &lv_font_montserrat_24, LV_STATE_DEFAULT);
+     lv_obj_set_pos(weather, 0, (LV_VER_RES_MAX/2)+20);
+     lv_obj_set_width(weather, 175);
+     lv_obj_set_style_text_align(weather, LV_TEXT_ALIGN_CENTER, 0);
 
      info=lv_label_create(scr);
      lv_label_set_recolor(info, true);
      lv_obj_set_style_text_color(info, lv_color_white(), LV_STATE_DEFAULT);
-     lv_obj_set_style_text_font(info, &lv_font_montserrat_14, LV_STATE_DEFAULT);
-     lv_obj_set_pos(info, 0, (LV_VER_RES_MAX-32));
+     lv_obj_set_style_text_font(info, &lv_font_montserrat_16, LV_STATE_DEFAULT);
+     lv_obj_set_pos(info, 0, (LV_VER_RES_MAX-36));
      lv_label_set_long_mode(info, LV_LABEL_LONG_WRAP);
      lv_obj_set_width(info, 175);
-     lv_obj_set_height(info, 32);
+     lv_obj_set_height(info, 35);
 
      // give all dynamic elements an update
      update_screen();

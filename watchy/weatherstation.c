@@ -14,6 +14,9 @@ extern bmx280_t bmx280_dev;
 
 #include "weatherstation.h"
 
+#define HEIGHT 230
+#define NORMAL 101325	// standard normal pressure 1013.25 at sea level
+
 static struct weatherpoint historic[24];
 static struct weatherpoint current;
 
