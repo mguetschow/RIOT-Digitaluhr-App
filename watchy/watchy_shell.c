@@ -195,7 +195,7 @@ static int _cmd_mag(int argc, char **argv)
 {
     (void) argc;
     (void) argv;
-    int16_t x,y,z;
+    uint16_t x,y,z;
     int ret;
 
     ret = magneto_read(&x, &y, &z);
@@ -213,6 +213,7 @@ static int _cmd_info(int argc, char **argv)
 
     strncpy(watch_state.info, argv[1], 63);
     watchy_event_queue_add(EV_INFO_NOTE);
+    //thread_wakeup(watch_state.event_thread_pid);
     return 0;
 }
 

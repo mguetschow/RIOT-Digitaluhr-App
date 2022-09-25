@@ -26,8 +26,9 @@ static void update_weather_now(void)
     char lstr[32];
 
     wp=weather_get_current();
-    lv_meter_set_indicator_value(meter, indic, (wp->pressure/100)+(230/10));
-    
+    // lv_meter_set_indicator_value(meter, indic, (wp->pressure/100)+(230/10));
+    lv_meter_set_indicator_value(meter, indic, (wp->pressure/100)+(watch_state.gnss_state.height/10));
+
     snprintf(lstr, 31, "#000000 %d.%d°C# ", wp->temp/100, (wp->temp%100)/10);
     lv_label_set_text(tlabel, lstr);
 
@@ -60,8 +61,7 @@ static lv_obj_t *create_weather_now_screen(void)
     lv_meter_set_indicator_end_value(meter, indic, 20);
 
     /*Make the tick lines blue at the start of the scale*/
-    indic = lv_meter_add_scale_lines(meter, scale, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_BLUE),
-                                     false, 0);
+    indic = lv_meter_add_scale_lines(meter, scale, lv_palette_main(LV_PALETTE_BLUE), lv_palette_main(LV_PALETTE_BLUE), false, 0);
     lv_meter_set_indicator_start_value(meter, indic, 0);
     lv_meter_set_indicator_end_value(meter, indic, 20);
 
@@ -71,26 +71,30 @@ static lv_obj_t *create_weather_now_screen(void)
     lv_meter_set_indicator_end_value(meter, indic, 100);
 
     /*Make the tick lines red at the end of the scale*/
-    indic = lv_meter_add_scale_lines(meter, scale, lv_palette_main(LV_PALETTE_RED), lv_palette_main(LV_PALETTE_RED), false,
-                                     0);
+    indic = lv_meter_add_scale_lines(meter, scale, lv_palette_main(LV_PALETTE_RED), lv_palette_main(LV_PALETTE_RED), false, 0);
     lv_meter_set_indicator_start_value(meter, indic, 80);
     lv_meter_set_indicator_end_value(meter, indic, 100);
 #endif
 
-    // a scale from 950mbar to 1070mbar, total angle 300°, 120° turned
-    lv_meter_set_scale_range(meter, scale, 950, 1076, 300, 120);
+    // a scale, total angle 300°, 120° turned
+    // top center 1013.25 hPa, standard pressure at sea level
+    #define PR_STD 1013
+    // we define a +/- range the scale shall cover
+    #define PR_RANGE 20
+    // lv_meter_set_scale_range(meter, scale, PR_STD-PR_RANGE, PR_STD+PR_RANGE, 300, 120);
+    lv_meter_set_scale_range(meter, scale, PR_STD-PR_RANGE, PR_STD+PR_RANGE, 180, 180);
     /*Add a needle line indicator*/
     indic = lv_meter_add_needle_line(meter, scale, 4, lv_color_black(), -10);
-
-    tlabel = lv_label_create(lv_weather_now_screen);
-    lv_label_set_recolor(tlabel, true);
-    lv_obj_set_style_text_font(tlabel, &lv_font_montserrat_24, LV_STATE_DEFAULT);
-    lv_obj_set_pos(tlabel, (176/2)-30, 95);
 
     plabel = lv_label_create(lv_weather_now_screen);
     lv_label_set_recolor(plabel, true);
     lv_obj_set_style_text_font(plabel, &lv_font_montserrat_16, LV_STATE_DEFAULT);
-    lv_obj_set_pos(plabel, (176/2)-34, 120);
+    lv_obj_set_pos(plabel, (176/2)-36, 105);
+
+    tlabel = lv_label_create(lv_weather_now_screen);
+    lv_label_set_recolor(tlabel, true);
+    lv_obj_set_style_text_font(tlabel, &lv_font_montserrat_24, LV_STATE_DEFAULT);
+    lv_obj_set_pos(tlabel, (176/2)-35, 125);
 
     update_weather_now();
 

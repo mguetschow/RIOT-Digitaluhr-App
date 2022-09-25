@@ -22,13 +22,13 @@
 #include <board.h>
 #include <irq.h>
 #include <periph_conf.h>
-#include <periph/gpio.h>
 #include <ringbuffer.h>
 #include <timex.h>
 #include <ztimer.h>
 #include <ztimer/periodic.h>
 #include <thread.h>
 #include <tm.h>
+#include <periph/gpio.h>
 #include <periph/pm.h>
 #include <periph/adc.h>
 #include <periph/spi.h>
@@ -76,20 +76,10 @@
 static uint32_t button_ev = false;
 static char shell_thread_stack[THREAD_STACKSIZE_SMALL+THREAD_EXTRA_STACKSIZE_PRINTF];
 static char event_thread_stack[THREAD_STACKSIZE_SMALL+THREAD_EXTRA_STACKSIZE_PRINTF];
-static kernel_pid_t shell_thread_pid=0;
-static kernel_pid_t event_thread_pid=0;
-// static struct tm _my_time;
-
-// static uint8_t bl_timeout=5;
-//static power_supply_stat_t pwr_stat = { false, false, 0, 0 };
 
 watchy_state_t watch_state;
 
 static char nmea_line[NMEA_LINE_BUF_LEN];
-
-//static uint8_t pointer_last_x=0;
-//static uint8_t pointer_last_y=0;
-//static bool pointer_clicked=false;
 
 #define DISPLAY_TIMEOUT 5
 
@@ -247,7 +237,7 @@ static void touch_cb(void *arg)
 
 	// can not read I2C from IRQ context, just set a flag
 	watchy_event_queue_add(EV_TOUCH);
-	thread_wakeup(event_thread_pid);
+	//thread_wakeup(watch_state.event_thread_pid);
 }
 
 static void _push_button_cb(void *arg)
@@ -263,7 +253,7 @@ static void _push_button_cb(void *arg)
         button_ev = 1;
     }
     watchy_event_queue_add(EV_BUTTON);
-    thread_wakeup(event_thread_pid);
+    //thread_wakeup(watch_state.event_thread_pid);
 }
 
 static void _ext_power_cb(void *arg)
@@ -281,7 +271,7 @@ void uart_rx_cb(void *arg, uint8_t data)
 
   if (data == '\n') {
       watchy_event_queue_add(EV_GNSS);
-      thread_wakeup(event_thread_pid);
+      //thread_wakeup(watch_state.event_thread_pid);
   } else {
       if (data > 0x1f) {
         if (strlen(nmea_line) < (NMEA_LINE_BUF_LEN-2))
@@ -482,6 +472,14 @@ void *event_thread(void *arg)
                   break;
               case EV_INFO_NOTE:
                   break;
+              case EV_BT_CONN:
+                  break;
+              case EV_BT_NUS: {
+                  char buf[32];
+                  watchy_gatt_nus_get_rx(buf, 30);
+                  DEBUG("NUS RX '%s'\n", buf);
+                  break;
+              }
               default:
                   DEBUG("no event?\n");
                   break;
@@ -524,7 +522,7 @@ static bool rtc_second_cb(void *arg)
      tm_fill_derived_values(&watch_state.clock);
    }
 
-   thread_wakeup(event_thread_pid);
+   //thread_wakeup(watch_state.event_thread_pid);
 
    return true;
 }
@@ -590,15 +588,15 @@ int main(void)
                 uart_poweroff(UART_DEV(0));
 
 
-	event_thread_pid=thread_create(event_thread_stack, sizeof(event_thread_stack),
+	watch_state.event_thread_pid=thread_create(event_thread_stack, sizeof(event_thread_stack),
 		THREAD_PRIORITY_IDLE - 1, THREAD_CREATE_STACKTEST,
 		event_thread, NULL, "event_thread");
-	DEBUG("eventthr=%d\n", event_thread_pid);
+	//DEBUG("eventthr=%d\n", watch_state.event_thread_pid);
 
-	shell_thread_pid=thread_create(shell_thread_stack, sizeof(shell_thread_stack),
+	watch_state.shell_thread_pid=thread_create(shell_thread_stack, sizeof(shell_thread_stack),
 		THREAD_PRIORITY_IDLE - 1, THREAD_CREATE_STACKTEST,
 		shell_thread, NULL, "shell_thread");
-	DEBUG("shellthr=%d\n", shell_thread_pid);
+	//DEBUG("shellthr=%d\n", watch_state.shell_thread_pid);
 
    	get_power_stat(&watch_state.pwr_stat);
 
@@ -607,18 +605,10 @@ int main(void)
 	indev_drv.read_cb = lv_input_cb;
 	lv_indev_drv_register(&indev_drv);
 
-#if 0
-	// DEBUG("c=%d\n", sizeof(lv_color_t));
-	lv_main_screen = create_main_screen();
-	update_main_screen();
-	lv_second_screen = NULL;
-
-	lv_disp_load_scr(lv_main_screen);
-#else
         screens_init();
-#endif
+
 	watchy_event_queue_add(EV_SEC_TICK);
-	thread_wakeup(event_thread_pid);
+	//thread_wakeup(watch_state.event_thread_pid);
 
 	watchy_gatt_init();
 

@@ -1,3 +1,5 @@
+#include <thread.h>
+#include "watchy.h"
 #include "watchy_events.h"
 
 static watchy_event_queue_t ev_queue = { .length=0, .first=0, .last=0 };
@@ -8,6 +10,8 @@ uint8_t watchy_event_queue_add(watchy_event_t event)
     ev_queue.last++;
     ev_queue.last %= WATCHY_EVENT_QUEUE_LENGTH;
     ev_queue.length++;
+
+    thread_wakeup(watch_state.event_thread_pid);
 
     return ev_queue.length;
 }

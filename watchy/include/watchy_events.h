@@ -25,6 +25,8 @@ typedef enum {
     EV_POWER_CHANGE,	// ext power (dis-)connected or other power event
     EV_UPDATE_DISPLAY,	// display content changed, needs update
     EV_INFO_NOTE,	// notification or information update
+    EV_BT_CONN,		// Bluetooth conection event (connect/disconnect)
+    EV_BT_NUS,		// the Bluetooth NUS service has something to say
 } watchy_event_t;
 
 #define WATCHY_EVENT_QUEUE_LENGTH 8

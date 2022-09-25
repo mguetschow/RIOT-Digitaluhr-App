@@ -153,9 +153,14 @@ static lv_obj_t *create_gnss_screen(void)
 
 static bool gnss_event_trigger(watchy_event_t event)
 {
+    static uint8_t last_update_sec = 0;
+
     switch(event) {
         case EV_GNSS:
-            update_gnss();
+            if (watch_state.clock.tm_sec != last_update_sec) {
+                update_gnss();
+                last_update_sec = watch_state.clock.tm_sec;
+            }
             break;
         default:
             return false;

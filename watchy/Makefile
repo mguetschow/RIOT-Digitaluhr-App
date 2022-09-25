@@ -16,6 +16,10 @@ RIOTBASE ?= $(CURDIR)/../../RIOT-Digitaluhr
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
+# to enable SEGGER RTT console on SWD
+CFLAGS += -DRTT_CONSOLE
+USEMODULE += stdio_rtt
+
 CFLAGS += -I$(CURDIR)/include/
 
 USEMODULE += shell
@@ -99,8 +103,6 @@ FEATURES_REQUIRED += periph_spi
 FEATURES_REQUIRED += periph_gpio_irq
 FEATURES_REQUIRED += periph_uart
 
-
-#CFLAGS += -DRTT_CONSOLE
 #CFLAGS += -DISR_STACKSIZE=512
 CFLAGS += -DTHREAD_STACKSIZE_MAIN=THREAD_STACKSIZE_LARGE+THREAD_EXTRA_STACKSIZE_PRINTF
 

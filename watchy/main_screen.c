@@ -153,6 +153,7 @@ static bool event_trigger(watchy_event_t event)
        case EV_MIN_TICK:
        case EV_POWER_CHANGE:
        case EV_INFO_NOTE:
+       case EV_BT_CONN:
          update_screen();
          break;
        default:
