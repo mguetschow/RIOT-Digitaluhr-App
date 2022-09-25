@@ -3,4 +3,12 @@
 
 int watchy_gatt_init (void);
 
+// *buf pointer to an allocated buffer of length len
+// returns number of bytes written to buf
+// buf does not need to be larger than 21 bytes,
+// which is the NUS maxuimum per NUS transfer (plus trailing NUL byte)
+int watchy_gatt_nus_get_rx(char *buf, int len);
+
+int gatt_svr_nus_tx(char *buf, int len);
+
 #endif
