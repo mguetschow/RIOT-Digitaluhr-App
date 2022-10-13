@@ -1,0 +1,7 @@
+# in case we need another module
+USEMODULE += stdio_available
+USEMODULE += isrpipe
+USEMODULE += tsrb
+USEPKG += nimble
+USEMODULE += nimble_svc_gap
+USEMODULE += nimble_svc_gatt
