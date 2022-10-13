@@ -71,6 +71,7 @@ typedef struct {
 typedef struct {
     kernel_pid_t shell_thread_pid;
     kernel_pid_t event_thread_pid;
+    uint32_t rtc_time;
     struct tm clock;			// the clock - it's a watch!
     uint8_t display_timeout;		// how long until sleep display
     power_supply_stat_t pwr_stat;	// current power supply state

@@ -20,7 +20,7 @@ static lv_obj_t *lon_l;
 static lv_obj_t *height_l;
 static lv_obj_t *speed_l;
 static lv_obj_t *course_l;
-static lv_obj_t *dilution_l;
+//static lv_obj_t *dilution_l;
 
 #define LABEL_HEIGHT 20
 #define LABEL_OFFSET_Y 20
@@ -48,8 +48,8 @@ static void update_gnss(void)
     snprintf(lstr, 31, "%d", watch_state.gnss_state.course);
     lv_label_set_text(course_l, lstr);
 
-    snprintf(lstr, 31, "%d", watch_state.gnss_state.dilution);
-    lv_label_set_text(dilution_l, lstr);
+//    snprintf(lstr, 31, "%d", watch_state.gnss_state.dilution);
+//    lv_label_set_text(dilution_l, lstr);
 
     watchy_event_queue_add(EV_UPDATE_DISPLAY);
 }
@@ -133,6 +133,7 @@ static lv_obj_t *create_gnss_screen(void)
     lv_obj_set_style_text_font(course_l, &lv_font_montserrat_16, LV_STATE_DEFAULT);
     lv_obj_set_pos(course_l, LABEL_OFFSET_X, LABEL_OFFSET_Y + 5 * LABEL_HEIGHT);
 
+#if 0
     tl=lv_label_create(lv_gnss_screen);
     lv_obj_set_style_text_color(tl, lv_color_white(), LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(tl, &lv_font_montserrat_16, LV_STATE_DEFAULT);
@@ -144,7 +145,7 @@ static lv_obj_t *create_gnss_screen(void)
     lv_obj_set_style_text_color(dilution_l, lv_color_white(), LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(dilution_l, &lv_font_montserrat_16, LV_STATE_DEFAULT);
     lv_obj_set_pos(dilution_l, LABEL_OFFSET_X, LABEL_OFFSET_Y + 6 * LABEL_HEIGHT);
-
+#endif
 
     update_gnss();
 

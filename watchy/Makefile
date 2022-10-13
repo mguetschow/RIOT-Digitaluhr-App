@@ -8,6 +8,8 @@ BOARD ?= banglejs-2
 RIOTBASE ?= $(CURDIR)/../../RIOT-Digitaluhr
 #RIOTBASE ?= /home/nica/Code/PineTime-apps/RIOT
 
+EXTERNAL_MODULE_DIRS += watchy_modules
+
 # Comment this out to disable code in RIOT that does safety checking
 # which is not needed in a production environment but helps in the
 # development process:
@@ -17,17 +19,24 @@ RIOTBASE ?= $(CURDIR)/../../RIOT-Digitaluhr
 QUIET ?= 1
 
 # to enable SEGGER RTT console on SWD
-CFLAGS += -DRTT_CONSOLE
-USEMODULE += stdio_rtt
+#CFLAGS += -DRTT_CONSOLE
+#USEMODULE += stdio_rtt
+
+# to enable console via BLE serial
+#USEMODULE += stdio_nimble
+
+USEMODULE += stdio_nus
 
 CFLAGS += -I$(CURDIR)/include/
 
+USEMODULE += tsrb
 USEMODULE += shell
 USEMODULE += shell_commands
 USEMODULE += ps
 USEMODULE += ztimer_sec
 USEMODULE += ztimer_msec
 USEMODULE += timex
+USEMODULE += rtc_utils
 ifneq ($(BOARD),native)
 USEMODULE += i2c_scan
 endif
@@ -69,8 +78,6 @@ CFLAGS += -DCONFIG_NIMBLE_AUTOADV_START_MANUALLY=1
 #USEMODULE += nimble_host_store_ram
 #USEMODULE += nimble_host
 #USEMODULE += nimble_controller
-#USEMODULE += nimble_svc_gap
-#USEMODULE += nimble_svc_gatt
 #USEMODULE += bluetil_ad
 endif
 

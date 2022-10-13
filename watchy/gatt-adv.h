@@ -9,6 +9,6 @@ int watchy_gatt_init (void);
 // which is the NUS maxuimum per NUS transfer (plus trailing NUL byte)
 int watchy_gatt_nus_get_rx(char *buf, int len);
 
-int gatt_svr_nus_tx(char *buf, int len);
+ssize_t gatt_svr_nus_tx_buf(char *buf, int len);
 
 #endif

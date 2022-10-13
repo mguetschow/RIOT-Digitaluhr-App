@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <time.h>
 #include <tm.h>
+#include <rtc_utils.h>
 
 #include <periph/gpio.h>
 #include <periph/uart.h>
@@ -56,6 +57,7 @@ void handle_gnss_event(char *nmea_line, watchy_state_t *watch_state)
 					watch_state->clock.tm_hour %= 24;
 					watch_state->clock.tm_min = frame.time.minutes;
 					watch_state->clock.tm_sec = frame.time.seconds;
+					watch_state->rtc_time = rtc_mktime(&watch_state->clock);
 				} else {
 					watch_state->gnss_state.time_valid = false;
 				}
@@ -65,6 +67,7 @@ void handle_gnss_event(char *nmea_line, watchy_state_t *watch_state)
 					watch_state->clock.tm_mon = frame.date.month - 1;
 					watch_state->clock.tm_year = frame.date.year - TM_YEAR_OFFSET;
 					tm_fill_derived_values(&watch_state->clock);
+					watch_state->rtc_time = rtc_mktime(&watch_state->clock);
 				} else {
 					watch_state->gnss_state.date_valid = false;
 				}

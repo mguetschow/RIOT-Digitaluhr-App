@@ -23,12 +23,13 @@ extern bmx280_t bmx280_dev;
 #include "kx023-1025.h"
 #include "magneto.h"
 #include "gnss.h"
+#include "gatt-adv.h"
 
 static char line_buf[SHELL_DEFAULT_BUFSIZE];
 
 static void print_time(const struct tm *time)
 {
-        DEBUG("%04d-%02d-%02d %02d:%02d:%02d\n",
+        printf("%04d-%02d-%02d %02d:%02d:%02d\n",
                 time->tm_year + TM_YEAR_OFFSET,
                 time->tm_mon + 1,
                 time->tm_mday,
@@ -66,10 +67,10 @@ static int _cmd_bat(int argc, char **argv)
 
     get_power_stat(&watch_state.pwr_stat);
 
-    DEBUG("%dmV\n", watch_state.pwr_stat.battery_mvolt);
-    DEBUG("%d%%\n", watch_state.pwr_stat.battery_percent);
-    DEBUG("%sext power\n", watch_state.pwr_stat.charger_present ? "" : "no ");
-    DEBUG("%scharging\n", watch_state.pwr_stat.charge_complete ? "not " : "");
+    printf("%dmV\n", watch_state.pwr_stat.battery_mvolt);
+    printf("%d%%\n", watch_state.pwr_stat.battery_percent);
+    printf("%sext power\n", watch_state.pwr_stat.charger_present ? "" : "no ");
+    printf("%scharging\n", watch_state.pwr_stat.charge_complete ? "not " : "");
 
     return 0;
 }
@@ -79,7 +80,7 @@ static int _cmd_bl(int argc, char **argv)
     uint16_t bright;
 
     if ((argc == 2) && (memcmp(argv[1], "help", 4) == 0)) {
-        DEBUG("usage: %s brightness (0-100)\n", argv[0]);
+        printf("usage: %s brightness (0-100)\n", argv[0]);
 
         return 0;
     }
@@ -103,7 +104,7 @@ static int _cmd_vib(int argc, char **argv)
 
     // 20-30 is totally enough
     if ((argc == 2) && (memcmp(argv[1], "help", 4) == 0)) {
-        DEBUG("usage: %s intens (0-100)\n", argv[0]);
+        printf("usage: %s intens (0-100)\n", argv[0]);
 
         return 0;
     }
@@ -144,7 +145,7 @@ static int _cmd_atm_pressure(int argc, char **argv)
         int16_t temperature = bmx280_read_temperature(&bmx280_dev);
         uint32_t pressure = bmx280_read_pressure(&bmx280_dev);
 
-        DEBUG("%d.%d C @ %ld.%ld hPa\n", temperature/100, temperature%100, pressure/100, pressure%100);
+        printf("%d.%d C @ %ld.%ld hPa\n", temperature/100, temperature%100, pressure/100, pressure%100);
 
         return 0;
 }
@@ -152,25 +153,25 @@ static int _cmd_atm_pressure(int argc, char **argv)
 static int _cmd_acc(int argc, char **argv)
 {
     if (argc==1 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
-        DEBUG("usage: %s [on|off|get]\n", argv[0]);
+        printf("usage: %s [on|off|get]\n", argv[0]);
         return 0;
     }
     if (strncmp(argv[1], "on", 2) == 0) {
         if (kx023_activate() == 0)
-            DEBUG("accel on\n");
+            printf("accel on\n");
         else
-            DEBUG("accel fail\n");
+            printf("accel fail\n");
     }
     if (strncmp(argv[1], "off", 3) == 0) {
         if (kx023_activate() == 0)
-            DEBUG("accel off\n");
+            printf("accel off\n");
         else
-            DEBUG("accel fail\n");
+            printf("accel fail\n");
     }
     if (strncmp(argv[1], "get", 3) == 0) {
         int16_t x,y,z;
         kx023_read_accel(&x, &y, &z);
-        DEBUG("x=%d y=%d z=%d\n", x,y,z);
+        printf("x=%d y=%d z=%d\n", x,y,z);
     }
     return 0;
 }
@@ -178,7 +179,7 @@ static int _cmd_acc(int argc, char **argv)
 static int _cmd_hrm(int argc, char **argv)
 {
     if (argc==1 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
-        DEBUG("usage: %s [on|off|get]\n", argv[0]);
+        printf("usage: %s [on|off|get]\n", argv[0]);
         return 0;
     }
     if (strncmp(argv[1], "on", 2) == 0) {
@@ -199,7 +200,7 @@ static int _cmd_mag(int argc, char **argv)
     int ret;
 
     ret = magneto_read(&x, &y, &z);
-    DEBUG("r=0x%02x x=%d y=%d z=%d\n", ret, x, y, z);
+    printf("r=0x%02x x=%d y=%d z=%d\n", ret, x, y, z);
 
     return 0;
 }
@@ -207,7 +208,7 @@ static int _cmd_mag(int argc, char **argv)
 static int _cmd_info(int argc, char **argv)
 {
     if (argc==1 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
-        DEBUG("usage: %s [on|off|get]\n", argv[0]);
+        printf("usage: %s [on|off|get]\n", argv[0]);
         return 0;
     }
 

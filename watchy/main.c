@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Nicole Faerber, <nicole.faerber@digitaluhr-manufactur.de>
+ * Copyright (C) 2022 Nicole Faerber, <nicole.faerber@digitaluhr-manufaktur.de>
  *
  * This file is subject to the terms and conditions of the GNU Lesser
  * General Public License v2.1. See the file LICENSE in the top level
@@ -13,6 +13,7 @@
 #endif
 #include <string.h>
 #include <time.h>
+#include <rtc_utils.h>
 #include <byteorder.h>
 
 #include <shell.h>
@@ -201,7 +202,7 @@ bool get_power_stat(power_supply_stat_t *pwr)
 
 	pwr->charger_present = !gpio_read(EXTPOWER_PRESENT);
 
-	pwr->charge_complete = !gpio_read(CHARGE_COMPLETE);
+	pwr->charge_complete = gpio_read(CHARGE_COMPLETE);
 
 	return true;
 }
@@ -478,6 +479,7 @@ void *event_thread(void *arg)
                   char buf[32];
                   watchy_gatt_nus_get_rx(buf, 30);
                   DEBUG("NUS RX '%s'\n", buf);
+                  gatt_svr_nus_tx_buf(buf, strlen(buf));
                   break;
               }
               default:
@@ -503,8 +505,18 @@ static bool rtc_second_cb(void *arg)
 {
    (void) arg;
 
-   watchy_event_queue_add(EV_SEC_TICK);
+   watch_state.rtc_time++;
+   rtc_localtime(watch_state.rtc_time, &watch_state.clock);
 
+   watchy_event_queue_add(EV_SEC_TICK);
+   // we just rolled over to a full minute
+   if (watch_state.clock.tm_sec == 0)
+     watchy_event_queue_add(EV_MIN_TICK);
+   // we just rolled over to a full hour
+   if (watch_state.clock.tm_sec == 0 && watch_state.clock.tm_min ==0)
+     watchy_event_queue_add(EV_HOUR_TICK);
+
+#if 0
    watch_state.clock.tm_sec++;
    if (watch_state.clock.tm_sec > 59) {
      watch_state.clock.tm_sec=0;
@@ -521,8 +533,7 @@ static bool rtc_second_cb(void *arg)
      watch_state.clock.tm_mday++;
      tm_fill_derived_values(&watch_state.clock);
    }
-
-   //thread_wakeup(watch_state.event_thread_pid);
+#endif
 
    return true;
 }
@@ -553,11 +564,12 @@ int main(void)
 	memset(&watch_state, 0, sizeof(watchy_state_t));
 
 	watch_state.clock.tm_year = 2022 - TM_YEAR_OFFSET;
-	watch_state.clock.tm_mon = 8;
-	watch_state.clock.tm_mday = 20;
-	watch_state.clock.tm_hour = 1;
+	watch_state.clock.tm_mon = 10;
+	watch_state.clock.tm_mday = 9;
+	watch_state.clock.tm_hour = 8;
 	watch_state.clock.tm_min = 0;
 	watch_state.clock.tm_sec = 0;
+	watch_state.rtc_time = rtc_mktime(&watch_state.clock);
 
 	ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);
 	ztimer_periodic_start(&timer);
@@ -566,9 +578,12 @@ int main(void)
 	watch_state.bluetooth_pwr = BT_OFF;
 
 	strncpy(watch_state.info, "This is a way too long text to be displayed in these two lines" , 63);
+
 	// init LCD, display logo and enable backlight
 	// lpm013m126_init(&_disp_dev, &lpm013m126_params);
 	// display_logo(&_disp_dev);
+
+	// init backlight PWM
 	pwm_set(PWM_DEV(0), 0, 20);
 	//pwm_poweron(PWM_DEV(0));
 	xdisplay_on();
@@ -585,7 +600,7 @@ int main(void)
 	if (uart_init(UART_DEV(0), 9600, uart_rx_cb, NULL)) {
 		DEBUG("error configuring 9600 baud\n");
 	} else
-                uart_poweroff(UART_DEV(0));
+		uart_poweroff(UART_DEV(0));
 
 
 	watch_state.event_thread_pid=thread_create(event_thread_stack, sizeof(event_thread_stack),
@@ -605,12 +620,15 @@ int main(void)
 	indev_drv.read_cb = lv_input_cb;
 	lv_indev_drv_register(&indev_drv);
 
-        screens_init();
+	screens_init();
 
 	watchy_event_queue_add(EV_SEC_TICK);
 	//thread_wakeup(watch_state.event_thread_pid);
 
 	watchy_gatt_init();
+	//extern void stdio_ble_init(void);
+	//stdio_ble_init();
+
 
 	switch (bmx280_init(&bmx280_dev, &bmx280_params[0])) {
         case BMX280_ERR_BUS:
