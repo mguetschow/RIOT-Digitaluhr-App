@@ -19,57 +19,70 @@ extern bmx280_t bmx280_dev;
 
 static struct weatherpoint historic[24];
 static struct weatherpoint current;
+static int trend=0;
 
 struct weatherpoint *weather_get_current(void)
 {
-     return &current;
+	return &current;
 }
 
 struct weatherpoint *weather_get_24(void)
 {
-     return historic;
+	return historic;
+}
+
+int weather_get_trend(void)
+{
+	trend = 0;
+	for (int i=0; i<23; i++) {
+		if ((historic[i].pressure != 0) && (historic[i+1].pressure) != 0) {
+			trend += (int)((int)(historic[(i+1)%24].pressure / 100) - (int)(historic[i].pressure / 100));
+		}
+	}
+	return trend;
 }
 
 // this should get called once a minute
 void weather_update_readings(struct tm *clock)
 {
-     current.temp = bmx280_read_temperature(&bmx280_dev);
-     current.pressure = bmx280_read_pressure(&bmx280_dev);
+	current.temp = bmx280_read_temperature(&bmx280_dev);
+	current.pressure = bmx280_read_pressure(&bmx280_dev);
 
-     //DEBUG("ws %d.%d C @ %ld.%ld hPa\n", current.temp/100, current.temp%100, current.pressure/100, current.pressure%100);
-     if (clock->tm_hour < 23) {
-          if (clock->tm_min != 0) { // gliding average
-               if ((historic[clock->tm_hour].temp != 0) && (historic[clock->tm_hour].pressure != 0)) {
-                    historic[clock->tm_hour].temp += current.temp;
-                    historic[clock->tm_hour].temp /= 2;
-                    historic[clock->tm_hour].pressure += current.pressure;
-                    historic[clock->tm_hour].pressure /= 2;
-               } else {
-                    historic[clock->tm_hour].temp = current.temp;
-                    historic[clock->tm_hour].pressure = current.pressure;
-               }
-          } else { // top of the hour start new averaging
-               historic[clock->tm_hour].temp = current.temp;
-               historic[clock->tm_hour].pressure = current.pressure;
-          }
-     }
+	//DEBUG("ws %d.%d C @ %ld.%ld hPa\n", current.temp/100, current.temp%100, current.pressure/100, current.pressure%100);
+	if (clock->tm_hour < 23) {
+		if (clock->tm_min != 0) { // gliding average
+			if ((historic[clock->tm_hour].temp != 0) && (historic[clock->tm_hour].pressure != 0)) {
+				historic[clock->tm_hour].temp += current.temp;
+				historic[clock->tm_hour].temp /= 2;
+				historic[clock->tm_hour].pressure += current.pressure;
+				historic[clock->tm_hour].pressure /= 2;
+			} else {
+				historic[clock->tm_hour].temp = current.temp;
+				historic[clock->tm_hour].pressure = current.pressure;
+			}
+		} else { // top of the hour start new averaging
+			historic[clock->tm_hour].temp = current.temp;
+			historic[clock->tm_hour].pressure = current.pressure;
+		}
+	}
 }
 
 
 void weatherstation_init(void)
 {
-     int i;
-     for (i=0; i<24; i++) {
-          historic[i].temp=0;
-          historic[i].pressure=0;
-#ifdef HAS_RH_SENSOR
-          historic[i].rh=0;
-#endif
-     }
-     current.temp=0;
-     current.pressure=0;
-#ifdef HAS_RH_SENSOR
-     current.rh=0;
-#endif
+	int i;
 
+	for (i=0; i<24; i++) {
+		historic[i].temp = 0;
+		historic[i].pressure = 0;
+#ifdef HAS_RH_SENSOR
+		historic[i].rh = 0;
+#endif
+	}
+	current.temp=0;
+	current.pressure=0;
+#ifdef HAS_RH_SENSOR
+	current.rh=0;
+#endif
 }
+
