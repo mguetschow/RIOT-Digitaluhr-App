@@ -12,7 +12,7 @@
 
 #include <screens.h>
 
-#define SCREEN_TRANSITION_TIME	500 //300
+#define SCREEN_TRANSITION_TIME	300 //500
 
 struct screen *cur_screen=NULL;
 

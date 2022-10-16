@@ -53,10 +53,11 @@ void handle_gnss_event(char *nmea_line, watchy_state_t *watch_state)
 				if (frame.time.hours != -1) {
 					// time is valid now
 					watch_state->gnss_state.time_valid = true;
-					watch_state->clock.tm_hour = frame.time.hours + 2;
-					watch_state->clock.tm_hour %= 24;
+					// compensate for time zone and DST
+					watch_state->clock.tm_hour = frame.time.hours - watch_state->timez + ((watch_state->clock.tm_isdst > 0) ? 1 : 0);
 					watch_state->clock.tm_min = frame.time.minutes;
 					watch_state->clock.tm_sec = frame.time.seconds;
+					rtc_tm_normalize(&watch_state->clock);
 					watch_state->rtc_time = rtc_mktime(&watch_state->clock);
 				} else {
 					watch_state->gnss_state.time_valid = false;
@@ -66,7 +67,7 @@ void handle_gnss_event(char *nmea_line, watchy_state_t *watch_state)
 					watch_state->clock.tm_mday = frame.date.day;
 					watch_state->clock.tm_mon = frame.date.month - 1;
 					watch_state->clock.tm_year = frame.date.year - TM_YEAR_OFFSET;
-					tm_fill_derived_values(&watch_state->clock);
+					rtc_tm_normalize(&watch_state->clock);
 					watch_state->rtc_time = rtc_mktime(&watch_state->clock);
 				} else {
 					watch_state->gnss_state.date_valid = false;

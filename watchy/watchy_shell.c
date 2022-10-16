@@ -14,6 +14,11 @@
 extern bmx280_t bmx280_dev;
 
 #include <shell.h>
+#include <vfs.h>
+#include <vfs_util.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <tiny_strerror.h>
 
 #define ENABLE_DEBUG 1
 #include "debug.h"
@@ -24,8 +29,12 @@ extern bmx280_t bmx280_dev;
 #include "magneto.h"
 #include "gnss.h"
 #include "gatt-adv.h"
+#include "weatherstation.h"
+
 
 static char line_buf[SHELL_DEFAULT_BUFSIZE];
+#define VFS_PATH_LEN 32
+static char _vfs_path[VFS_PATH_LEN] = "/nvm0";
 
 static void print_time(const struct tm *time)
 {
@@ -218,18 +227,176 @@ static int _cmd_info(int argc, char **argv)
     return 0;
 }
 
+static int _cmd_pwd(int argc, char **argv)
+{
+    (void) argc;
+    (void) argv;
+
+	printf("%s\n", _vfs_path);
+
+	return 0;
+}
+
+static int _cmd_cd(int argc, char **argv)
+{
+	vfs_DIR vdir;
+	char tpath[VFS_PATH_LEN];
+
+    if ((argc == 2) && (memcmp(argv[1], "help", 4) == 0)) {
+        printf("usage: %s [path]\n", argv[0]);
+        return 0;
+    }
+    if (argc ==1) {
+    	strcpy(tpath, "/nvm0");
+    }
+
+	if (argv[1][0] == '/') {
+		strcpy(tpath, argv[1]);
+	} else {
+		// relative path name
+		strcpy(tpath, _vfs_path);
+		strcat(tpath, "/");
+		strcat(tpath, argv[1]);
+	}
+	vfs_normalize_path(tpath, tpath, strlen(tpath) + 1);
+	if (vfs_opendir(&vdir, tpath) == 0) {
+		vfs_closedir(&vdir);
+		strncpy(_vfs_path, tpath, VFS_PATH_LEN);
+		return 0;
+	} else
+		printf("cd: %s: No such file or directory\n", argv[1]);
+
+	return 1;
+}
+
+static int _cmd_ls(int argc, char **argv)
+{
+	vfs_DIR vdir;
+	char *lspath = _vfs_path;
+	bool llist = false;
+
+    if ((argc == 2) && (memcmp(argv[1], "help", 4) == 0)) {
+        printf("usage: %s [-l] [path]\n", argv[0]);
+        return 0;
+    } else if (argc >= 2) {
+	    if ((memcmp(argv[1], "-l", 2) == 0))
+    		llist = true;
+    }
+
+	if (vfs_opendir(&vdir, lspath) == 0) {
+		vfs_dirent_t dirent;
+		struct stat stat;
+		char path_name[2 * (VFS_NAME_MAX + 1)];
+		while (vfs_readdir(&vdir, &dirent) > 0) {
+			snprintf(path_name, sizeof(path_name), "%s/%s", _vfs_path, dirent.d_name);
+			vfs_stat(path_name, &stat);
+			if (stat.st_mode & S_IFDIR) {
+				if (llist)
+					printf("%lx\t%ld\t%s\n", stat.st_mode, stat.st_size, dirent.d_name);					
+				else
+					printf("%s/\t", dirent.d_name);
+			} else {
+				if (llist)
+					printf("%lx\t%ld\t%s\n", stat.st_mode, stat.st_size, dirent.d_name);					
+				else
+					printf("%s\t", dirent.d_name);					
+			}
+		}
+		printf("\n");
+		vfs_closedir(&vdir);
+		return 0;
+	} else
+		printf("ls: %s: No such file or directory\n", argv[1]);
+
+	return 0;
+}
+
+static int _cmd_cat(int argc, char **argv)
+{
+	char tpath[VFS_PATH_LEN];
+	struct stat stat;
+
+    if (argc==1 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
+        printf("usage: %s <file>\n", argv[0]);
+        return 0;
+    }
+
+	if (argv[1][0] == '/') {
+		strcpy(tpath, argv[1]);
+	} else {
+		// relative path name
+		strcpy(tpath, _vfs_path);
+		strcat(tpath, "/");
+		strcat(tpath, argv[1]);
+	}
+	vfs_normalize_path(tpath, tpath, strlen(tpath) + 1);
+
+	if (vfs_stat(tpath, &stat) != 0) {
+		printf("cat: %s: No such file or directory\n", argv[1]);
+		return 1;
+	}
+	if (stat.st_mode & S_IFDIR) {
+		printf("cat: %s: Is a directory\n", argv[1]);
+		return 1;
+	}
+	int fd = vfs_open(tpath, O_RDONLY, 0);
+	if (fd < 0) {
+		//printf("Error opening file \"%s\": %s\n", tpath, tiny_strerror(fd));
+		printf("Error opening file \"%s\"\n", tpath);
+		return 3;
+	}
+	{
+		char buf[40];
+		memset(buf,0,40);
+		while (vfs_read(fd, buf, 40) > 0) {
+			printf("%s", buf);
+			memset(buf,0,40);
+		}
+	}
+	vfs_close(fd);
+	printf("\n");
+
+	return 0;
+}
+
+static int _cmd_weather(int argc, char **argv)
+{
+	(void) argc;
+	(void) argv;
+	struct weatherpoint *wp;
+	char str[16];
+
+	wp = weather_get_24();
+
+	for (int i=0; i<24; i++) {
+		printf("%02d\t", i);
+		snprintf(str, 16, "%d.%d°C", wp[i].temp/100, (wp[i].temp%100)/10);
+		printf("%s\t", str);
+		snprintf(str, 16, "%ld.%ld hPa", wp[i].pressure/100, (wp[i].pressure%100)/10);
+		printf("%s\n", str);
+	}
+	printf("trend: %d\n", weather_get_trend());
+
+	return 0;
+}
+
 static const shell_command_t shell_commands[] = {
         { "acc", "accelerometer", _cmd_acc },
         { "bat", "get battery state", _cmd_bat },
         { "bl", "set LCD backlight brightness", _cmd_bl },
+        { "cat", "output file to stdout", _cmd_cat },
+        { "cd", "change directory", _cmd_cd },
         { "gnss", "turn on/off GNSS/GPS", _cmd_gnss },
         { "hrm", "turn on/off HRM", _cmd_hrm },
         { "info", "set info text", _cmd_info },
+        { "ls", "list directory contents", _cmd_ls },
         { "mag", "read mag once", _cmd_mag },
         { "off", "power off device", _cmd_off },
         { "pr", "get athmo pressure", _cmd_atm_pressure },
+        { "pwd", "get current path", _cmd_pwd },
         { "time", "print dttick", _cmd_time },
         { "vib", "set vibration", _cmd_vib },
+        { "weather", "query weatehr data", _cmd_weather },
         { NULL, NULL, NULL }
 };
 

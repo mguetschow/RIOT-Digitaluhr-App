@@ -27,6 +27,7 @@ typedef enum {
     EV_INFO_NOTE,	// notification or information update
     EV_BT_CONN,		// Bluetooth conection event (connect/disconnect)
     EV_BT_NUS,		// the Bluetooth NUS service has something to say
+    EV_BT_ALERT,	// Bluetooth alert
 } watchy_event_t;
 
 #define WATCHY_EVENT_QUEUE_LENGTH 8

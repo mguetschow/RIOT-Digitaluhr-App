@@ -49,6 +49,8 @@
 #include <services/gap/ble_svc_gap.h>
 #include <services/gatt/ble_svc_gatt.h>
 
+#include <rtc_utils.h>
+
 #include "watchy.h"
 #include "watchy_events.h"
 #include "gatt-adv.h"
@@ -61,6 +63,10 @@
 extern isrpipe_t _isrpipe_stdin;
 #endif
 
+#if IS_USED(MODULE_SHELL_LOCK)
+#include <shell_lock.h>
+#endif
+
 #define GATT_DEVICE_INFO_UUID                   0x180A
 #define GATT_MANUFACTURER_NAME_UUID             0x2A29
 #define GATT_MODEL_NUMBER_UUID                  0x2A24
@@ -69,6 +75,7 @@ extern isrpipe_t _isrpipe_stdin;
 
 static uint16_t _conn_handle=0;
 static uint16_t _nus_val_handle;
+static uint16_t _bas_battery_handle;
 
 /* Nordic UART Service - NUS */
 /* UUID = 6E400001-B5A3-F393-E0A9-E50E24DCCA9E */
@@ -88,36 +95,11 @@ static const ble_uuid128_t gatt_svr_chr_nus_tx_uuid
         = BLE_UUID128_INIT(0x9e, 0xca, 0xdc, 0x24, 0x0e, 0xe5, 0xa9, 0xe0, 0x93,
                 0xf3, 0xa3, 0xb5, 0x03, 0x00, 0x40, 0x6e);
 
-/* --------------------- */
 
-/* UUID = 1bce38b3-d137-48ff-a13e-033e14c7a335 */
-static const ble_uuid128_t gatt_svr_svc_rw_demo_uuid
-        = BLE_UUID128_INIT(0x35, 0xa3, 0xc7, 0x14, 0x3e, 0x03, 0x3e, 0xa1, 0xff,
-                0x48, 0x37, 0xd1, 0xb3, 0x38, 0xce, 0x1b);
-
-/* UUID = 35f28386-3070-4f3b-ba38-27507e991762 */
-static const ble_uuid128_t gatt_svr_chr_rw_demo_write_uuid
-        = BLE_UUID128_INIT(0x62, 0x17, 0x99, 0x7e, 0x50, 0x27, 0x38, 0xba, 0x3b,
-                0x4f, 0x70, 0x30, 0x86, 0x83, 0xf2, 0x35);
-
-/* UUID = ccdd113f-40d5-4d68-86ac-a728dd82f4aa */
-static const ble_uuid128_t gatt_svr_chr_rw_demo_readonly_uuid
-        = BLE_UUID128_INIT(0xaa, 0xf4, 0x82, 0xdd, 0x28, 0xa7, 0xac, 0x86, 0x68,
-                0x4d, 0xd5, 0x40, 0x3f, 0x11, 0xdd, 0xcc);
-
-static char rm_demo_write_data[64] = "This characteristic is read- and writeable!";
-
-static int gatt_svr_chr_access_device_info_manufacturer(
+static int gatt_svr_chr_access_device_info(
         uint16_t conn_handle, uint16_t attr_handle,
         struct ble_gatt_access_ctxt *ctxt, void *arg);
 
-static int gatt_svr_chr_access_device_info_model(
-        uint16_t conn_handle, uint16_t attr_handle,
-        struct ble_gatt_access_ctxt *ctxt, void *arg);
-
-static int gatt_svr_chr_access_rw_demo(
-        uint16_t conn_handle, uint16_t attr_handle,
-        struct ble_gatt_access_ctxt *ctxt, void *arg);
 
 static char str_answer[STR_ANSWER_BUFFER_SIZE];
 
@@ -126,6 +108,21 @@ static int gatt_svr_nus_rxtx(
         uint16_t conn_handle, uint16_t attr_handle,
         struct ble_gatt_access_ctxt *ctxt, void *arg);
 
+static int gatt_svc_bas_access(
+        uint16_t conn_handle, uint16_t attr_handle,
+        struct ble_gatt_access_ctxt *ctxt, void *arg);
+
+static int gatt_svc_time_access(
+        uint16_t conn_handle, uint16_t attr_handle,
+        struct ble_gatt_access_ctxt *ctxt, void *arg);
+
+static int gatt_svc_alert_notification(
+        uint16_t conn_handle, uint16_t attr_handle,
+        struct ble_gatt_access_ctxt *ctxt, void *arg);
+
+static int gatt_svc_immediate_alert(
+        uint16_t conn_handle, uint16_t attr_handle,
+        struct ble_gatt_access_ctxt *ctxt, void *arg);
 
 /* define several bluetooth services for our device */
 static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
@@ -133,41 +130,104 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
      * access_cb defines a callback for read and write access events on
      * given characteristics
      */
-    {
+    {	
+		// 0x2a29 Manufacturer Name String
+		// 0x2a24 Model Number String
+    	// 0x2a25 Serial Number String
+    	// 0x2a26 Firmware Revision String
+    	// 0x2a27 Hardware Revision String
+    	// 0x2a28 Software Revision String
         /* Service: Device Information */
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
         .uuid = BLE_UUID16_DECLARE(GATT_DEVICE_INFO_UUID),
         .characteristics = (struct ble_gatt_chr_def[]) { {
             /* Characteristic: * Manufacturer name */
             .uuid = BLE_UUID16_DECLARE(GATT_MANUFACTURER_NAME_UUID),
-            .access_cb = gatt_svr_chr_access_device_info_manufacturer,
+            .access_cb = gatt_svr_chr_access_device_info,
             .flags = BLE_GATT_CHR_F_READ,
         }, {
             /* Characteristic: Model number string */
             .uuid = BLE_UUID16_DECLARE(GATT_MODEL_NUMBER_UUID),
-            .access_cb = gatt_svr_chr_access_device_info_model,
+            .access_cb = gatt_svr_chr_access_device_info,
+            .flags = BLE_GATT_CHR_F_READ,
+        }, {
+            /* Characteristic: Serial Number String */
+            .uuid = BLE_UUID16_DECLARE(0x2a25),
+            .access_cb = gatt_svr_chr_access_device_info,
+            .flags = BLE_GATT_CHR_F_READ,
+        }, {
+            /* Characteristic: Firmware Revision String */
+            .uuid = BLE_UUID16_DECLARE(0x2a26),
+            .access_cb = gatt_svr_chr_access_device_info,
+            .flags = BLE_GATT_CHR_F_READ,
+        }, {
+            /* Characteristic: Hardware Revision String */
+            .uuid = BLE_UUID16_DECLARE(0x2a27),
+            .access_cb = gatt_svr_chr_access_device_info,
+            .flags = BLE_GATT_CHR_F_READ,
+        }, {
+            /* Characteristic: Software Revision String */
+            .uuid = BLE_UUID16_DECLARE(0x2a28),
+            .access_cb = gatt_svr_chr_access_device_info,
             .flags = BLE_GATT_CHR_F_READ,
         }, {
             0, /* No more characteristics in this service */
         }, }
     },
-    {
-        /* Service: Read/Write Demo */
-        .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = (ble_uuid_t*) &gatt_svr_svc_rw_demo_uuid.u,
-        .characteristics = (struct ble_gatt_chr_def[]) { {
-            /* Characteristic: Read/Write Demo write */
-            .uuid = (ble_uuid_t*) &gatt_svr_chr_rw_demo_write_uuid.u,
-            .access_cb = gatt_svr_chr_access_rw_demo,
-            .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
-        }, {
-            /* Characteristic: Read/Write Demo read only */
-            .uuid = (ble_uuid_t*) &gatt_svr_chr_rw_demo_readonly_uuid.u,
-            .access_cb = gatt_svr_chr_access_rw_demo,
-            .flags = BLE_GATT_CHR_F_READ,
-        }, {
-            0, /* No more characteristics in this service */
-        }, }
+	{
+		/*** Battery Service. */
+		.type = BLE_GATT_SVC_TYPE_PRIMARY,
+		.uuid = BLE_UUID16_DECLARE(0x180F),
+		.characteristics = (struct ble_gatt_chr_def[]) { {
+			/*** Battery level characteristic */
+			.uuid = BLE_UUID16_DECLARE(0x2A19),
+			.access_cb = gatt_svc_bas_access,
+			.val_handle = &_bas_battery_handle,
+			.flags = BLE_GATT_CHR_F_READ |
+				BLE_GATT_CHR_F_NOTIFY |
+				0,
+		}, {
+			0, /* No more characteristics in this service. */
+		} },
+    },
+	{
+		/*** Current Time Service. */
+		.type = BLE_GATT_SVC_TYPE_PRIMARY,
+		.uuid = BLE_UUID16_DECLARE(0x1805),
+		.characteristics = (struct ble_gatt_chr_def[]) { {
+			/*** Current Time Characteristic Read */
+			.uuid = BLE_UUID16_DECLARE(0x2a2b),
+			.access_cb = gatt_svc_time_access,
+			.flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
+		}, {
+			0, /* No more characteristics in this service. */
+		} },
+    },
+	{
+		/*** Immediate Alert */
+		.type = BLE_GATT_SVC_TYPE_PRIMARY,
+		.uuid = BLE_UUID16_DECLARE(0x1802),
+		.characteristics = (struct ble_gatt_chr_def[]) { {
+			/*** Current Time Characteristic Read */
+			.uuid = BLE_UUID16_DECLARE(0x2a06),
+			.access_cb = gatt_svc_immediate_alert,
+			.flags = BLE_GATT_CHR_F_WRITE,
+		}, {
+			0, /* No more characteristics in this service. */
+		} },
+    },
+	{
+		/*** Alert Notification Service. */
+		.type = BLE_GATT_SVC_TYPE_PRIMARY,
+		.uuid = BLE_UUID16_DECLARE(0x1811),
+		.characteristics = (struct ble_gatt_chr_def[]) { {
+			/*** Current Time Characteristic Read */
+			.uuid = BLE_UUID16_DECLARE(0x2a46),
+			.access_cb = gatt_svc_alert_notification,
+			.flags = BLE_GATT_CHR_F_WRITE,
+		}, {
+			0, /* No more characteristics in this service. */
+		} },
     },
     {
         /* Service: Nordic UART - NUS */
@@ -193,42 +253,223 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
     },
 };
 
-static int gatt_svr_chr_access_device_info_manufacturer(
+static alert_t _last_alert;
+
+	// 0x1802 Immediate Alert
+	//   0x2a06 Alert Level, only one byte, no text or data
+	//     0x00 No Alert
+	//     0x01 Mild Alert
+	//     0x02 Hihg Alert
+static int gatt_svc_immediate_alert(
         uint16_t conn_handle, uint16_t attr_handle,
         struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
-    DEBUG("service 'device info: manufacturer' callback triggered");
+	(void) conn_handle;
+	(void) attr_handle;
+	(void) arg;
+	uint16_t uuid16 = ble_uuid_u16(ctxt->chr->uuid);
+	int rc;
+	uint8_t ialert=0;
 
-    (void) conn_handle;
-    (void) attr_handle;
-    (void) arg;
-
-    snprintf(str_answer, STR_ANSWER_BUFFER_SIZE,
-             "This is RIOT! (Version: %s)\n", RIOT_VERSION);
-    DEBUG("%s", str_answer);
-
-    int rc = os_mbuf_append(ctxt->om, str_answer, strlen(str_answer));
-
-    return rc;
+	switch (uuid16) {
+		case 0x2a06:
+			assert(ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR);
+			uint16_t om_len;
+			om_len = OS_MBUF_PKTLEN(ctxt->om);
+			rc = ble_hs_mbuf_to_flat(ctxt->om, &ialert,
+				sizeof ialert, &om_len);
+			return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+			break;
+		default:
+			assert(0);
+			return BLE_ATT_ERR_UNLIKELY;
+	}
+	return BLE_ATT_ERR_UNLIKELY;
 }
 
-static int gatt_svr_chr_access_device_info_model(
+// Alert notification Service UID 0x1811
+// New Alert 0x2a46, write
+// uint8 alert category
+//   1-email, 2-news, 3-call, 4-missed-call, 5-sms/mms, 6-voice-mail, 7-schedule
+//   8-high-priority-alert, 9-instant-message, 251-service-specific - 255
+// uint8 number of new alerts
+// char *  optional text
+static int gatt_svc_alert_notification(
         uint16_t conn_handle, uint16_t attr_handle,
         struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
-    DEBUG("service 'device info: model' callback triggered");
+	(void) conn_handle;
+	(void) attr_handle;
+	(void) arg;
+	uint16_t uuid16 = ble_uuid_u16(ctxt->chr->uuid);
+	int rc;
+	static uint8_t alertbuf[128];
 
-    (void) conn_handle;
-    (void) attr_handle;
-    (void) arg;
+	switch (uuid16) {
+		case 0x2a46:
+			if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) {
+				uint16_t om_len;
+				om_len = OS_MBUF_PKTLEN(ctxt->om);
+	
+				/* read sent data */
+				memset(alertbuf, 0, sizeof alertbuf);
+				rc = ble_hs_mbuf_to_flat(ctxt->om, alertbuf,
+					sizeof alertbuf, &om_len);
+				memcpy(&_last_alert.when, &watch_state.clock, sizeof(watch_state.clock));
+				_last_alert.type = alertbuf[0];
+				_last_alert.num_new = alertbuf[1];
+				_last_alert.text = (char *)alertbuf+2;
+				watchy_event_queue_add(EV_BT_ALERT);
+				return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+			}
+			break;
 
-    snprintf(str_answer, STR_ANSWER_BUFFER_SIZE,
-             "You are running RIOT on a(n) %s board, "
-             "which features a(n) %s MCU.", RIOT_BOARD, RIOT_MCU);
-    DEBUG("%s", str_answer);
+		default:
+			assert(0);
+			return BLE_ATT_ERR_UNLIKELY;
+	}
+	return BLE_ATT_ERR_UNLIKELY;
+}
 
-    int rc = os_mbuf_append(ctxt->om, str_answer, strlen(str_answer));
+//0 Year
+//1 Year
+//2 Month
+//3 Day
+//4 Hours
+//5 Minutes
+//6 Seconds
+//7 Day of Week (0 = unknown)
+//8 Fractions256 (0 = uknown)
+//9 Adjust Reason (0x03 = Manual Update => External Reference => No Time Zone Change => No DST Change)
+static int gatt_svc_time_access(
+        uint16_t conn_handle, uint16_t attr_handle,
+        struct ble_gatt_access_ctxt *ctxt, void *arg)
+{
+	(void) conn_handle;
+	(void) attr_handle;
+	(void) arg;
+    uint16_t uuid16 = ble_uuid_u16(ctxt->chr->uuid);
+    int rc;
+    uint8_t btime[10];
 
+    switch (uuid16) {
+	    case 0x2a2b:
+	        if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
+	        	*(uint16_t *)&btime[0] = (uint16_t)(watch_state.clock.tm_year + TM_YEAR_OFFSET);
+	        	btime[2] = (uint8_t)watch_state.clock.tm_mon + 1;
+	        	btime[3] = (uint8_t)watch_state.clock.tm_mday;
+	        	btime[4] = (uint8_t)watch_state.clock.tm_hour;
+	        	btime[5] = (uint8_t)watch_state.clock.tm_min;
+	        	btime[6] = (uint8_t)watch_state.clock.tm_sec;
+	        	btime[7] = (uint8_t)watch_state.clock.tm_wday;
+	        	btime[8] = 0x00;
+	        	btime[9] = 0x00;
+				rc = os_mbuf_append(ctxt->om, btime,
+					sizeof btime);
+				return (rc == 0) ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+			}
+			if (ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR) {
+				uint16_t om_len;
+				om_len = OS_MBUF_PKTLEN(ctxt->om);
+	
+				if (om_len > 10)
+					DEBUG("time RX>10!\n");
+				/* read sent data */
+				rc = ble_hs_mbuf_to_flat(ctxt->om, btime,
+					sizeof btime, &om_len);
+				for (int i=0; i<10; i++)
+					printf("%02x ", btime[i]);
+				printf("\n");
+				watch_state.clock.tm_year = *(uint16_t *)&btime[0] - TM_YEAR_OFFSET;
+				watch_state.clock.tm_mon = btime[2] - 1;
+				watch_state.clock.tm_mday = btime[3];
+				watch_state.clock.tm_hour = btime[4];
+				watch_state.clock.tm_min = btime[5];
+				watch_state.clock.tm_sec = btime[6];
+				rtc_tm_normalize(&watch_state.clock);
+				return (rc == 0) ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+			}
+			break;
+		default:
+			assert(0);
+			return BLE_ATT_ERR_UNLIKELY;
+	}
+	return BLE_ATT_ERR_UNLIKELY;
+}
+
+static int gatt_svc_bas_access(
+        uint16_t conn_handle, uint16_t attr_handle,
+        struct ble_gatt_access_ctxt *ctxt, void *arg)
+{
+	(void) conn_handle;
+	(void) attr_handle;
+	(void) arg;
+	uint16_t uuid16 = ble_uuid_u16(ctxt->chr->uuid);
+	int rc;
+
+	switch (uuid16) {
+	case 0x2A19:
+		assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+		rc = os_mbuf_append(ctxt->om, &watch_state.pwr_stat.battery_percent,
+					sizeof watch_state.pwr_stat.battery_percent);
+		return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+		break;
+	default:
+		assert(0);
+		return BLE_ATT_ERR_UNLIKELY;
+	}
+}
+
+static int gatt_svr_chr_access_device_info(
+        uint16_t conn_handle, uint16_t attr_handle,
+        struct ble_gatt_access_ctxt *ctxt, void *arg)
+{
+	(void) conn_handle;
+	(void) attr_handle;
+	(void) arg;
+	uint16_t uuid16 = ble_uuid_u16(ctxt->chr->uuid);
+	int rc=BLE_ATT_ERR_UNLIKELY;
+
+	switch (uuid16) {
+		case 0x2A29:
+			assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+			snprintf(str_answer, STR_ANSWER_BUFFER_SIZE,
+				"This is RIOT! (Version: %s)\n", RIOT_VERSION);
+
+			rc = os_mbuf_append(ctxt->om, str_answer, strlen(str_answer));
+			break;
+		case 0x2a24:
+			assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+			snprintf(str_answer, STR_ANSWER_BUFFER_SIZE,
+				"You are running RIOT on a(n) %s board, "
+				"which features a(n) %s MCU.", RIOT_BOARD, RIOT_MCU);
+
+			rc = os_mbuf_append(ctxt->om, str_answer, strlen(str_answer));
+			break;
+		case 0x2a25: // Serial Number String
+			assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+			snprintf(str_answer, STR_ANSWER_BUFFER_SIZE, "2210420123");
+			rc = os_mbuf_append(ctxt->om, str_answer, strlen(str_answer));
+			break;
+		case 0x2a26: // Firmware Revision String
+			assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+			snprintf(str_answer, STR_ANSWER_BUFFER_SIZE, "FW V0.01");
+			rc = os_mbuf_append(ctxt->om, str_answer, strlen(str_answer));
+			break;
+		case 0x2a27: // Hardware Revision String
+			assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+			snprintf(str_answer, STR_ANSWER_BUFFER_SIZE, "Bangle.JS2");
+			rc = os_mbuf_append(ctxt->om, str_answer, strlen(str_answer));
+			break;
+		case 0x2a28: // Software Revision String
+			assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
+			snprintf(str_answer, STR_ANSWER_BUFFER_SIZE, "SW V0.01");
+			rc = os_mbuf_append(ctxt->om, str_answer, strlen(str_answer));
+			break;
+		default:
+			DEBUG("BT dev info unhandled UUID 0x%04x\n", uuid16);
+			break;
+	}
     return rc;
 }
 
@@ -245,38 +486,18 @@ static tsrb_t _tsrb_nus_rx = TSRB_INIT(_tsrb_nus_rx_mem);
 static struct ble_npl_callout _send_nus_tx_callout;
 #define CALLOUT_TICKS_MS    1
 
-ssize_t gatt_svr_nus_tx_buf(char *buf, int len)
+ssize_t gatt_svr_nus_tx_buf(char *buf, unsigned int len)
 {
     //int res=-1;
 
 	ble_npl_callout_reset(&_send_nus_tx_callout, CALLOUT_TICKS_MS);
 
+	if (len > tsrb_free(&_tsrb_nus_tx))
+		len = tsrb_free(&_tsrb_nus_tx);
+
     return tsrb_add(&_tsrb_nus_tx, (uint8_t *)(buf), len);
 }
 
-#if 0
-int gatt_svr_nus_tx(void)
-{
-    struct os_mbuf *om;
-    int res=-1;
-    ssize_t len = tsrb_avail(&_tsrb_nus_tx);
-    uint8_t txb[21];
-
-	DEBUG("tx %d\n", len);
-
-	if (len == 0)
-		return 0;
-
-	len = tsrb_peek(&_tsrb_nus_tx, txb, 20);
-
-    om = ble_hs_mbuf_from_flat(txb, len);
-    res = ble_gatts_notify_custom(_conn_handle, _nus_val_handle, om);
-    if (res == 0)
-    	tsrb_drop(&_tsrb_nus_tx, len);
-
-    return res;
-}
-#endif
 
 static void _npl_tx_cb(struct ble_npl_event *ev)
 {
@@ -301,14 +522,8 @@ static void _npl_tx_cb(struct ble_npl_event *ev)
     	tsrb_drop(&_tsrb_nus_tx, len);
 }
 
-int watchy_gatt_nus_get_rx(char *buf, int len)
+int watchy_gatt_nus_get_rx(char *buf, unsigned int len)
 {
-#if 0
-    if (len > _nus_rx_len)
-        len = _nus_rx_len;
-    memcpy(buf, _nus_rx_buf, len);
-#endif
-
 #if IS_USED(MODULE_STDIO_NUS)
 	(void) buf;
 	(void) len;
@@ -378,98 +593,6 @@ static int gatt_svr_nus_rxtx(
     return 1;
 }
 
-static int gatt_svr_chr_access_rw_demo(
-        uint16_t conn_handle, uint16_t attr_handle,
-        struct ble_gatt_access_ctxt *ctxt, void *arg)
-{
-    DEBUG("service 'rw demo' callback triggered");
-
-    (void) conn_handle;
-    (void) attr_handle;
-    (void) arg;
-
-    int rc = 0;
-
-    ble_uuid_t* write_uuid = (ble_uuid_t*) &gatt_svr_chr_rw_demo_write_uuid.u;
-    ble_uuid_t* readonly_uuid = (ble_uuid_t*) &gatt_svr_chr_rw_demo_readonly_uuid.u;
-
-    if (ble_uuid_cmp(ctxt->chr->uuid, write_uuid) == 0) {
-
-        DEBUG("access to characteristic 'rw demo (write)'");
-
-        switch (ctxt->op) {
-
-            case BLE_GATT_ACCESS_OP_READ_CHR:
-                DEBUG("read from characteristic\n");
-                DEBUG("current value of rm_demo_write_data: '%s'\n",
-                       rm_demo_write_data);
-
-                /* send given data to the client */
-                rc = os_mbuf_append(ctxt->om, &rm_demo_write_data,
-                                    strlen(rm_demo_write_data));
-
-                break;
-
-            case BLE_GATT_ACCESS_OP_WRITE_CHR:
-                DEBUG("write to characteristic\n");
-
-                DEBUG("old value of rm_demo_write_data: '%s'\n",
-                       rm_demo_write_data);
-
-                uint16_t om_len;
-                om_len = OS_MBUF_PKTLEN(ctxt->om);
-
-                /* read sent data */
-                rc = ble_hs_mbuf_to_flat(ctxt->om, &rm_demo_write_data,
-                                         sizeof rm_demo_write_data, &om_len);
-                /* we need to null-terminate the received string */
-                rm_demo_write_data[om_len] = '\0';
-
-                DEBUG("new value of rm_demo_write_data: '%s'\n",
-                       rm_demo_write_data);
-
-                break;
-
-            case BLE_GATT_ACCESS_OP_READ_DSC:
-                DEBUG("read from descriptor\n");
-                break;
-
-            case BLE_GATT_ACCESS_OP_WRITE_DSC:
-                DEBUG("write to descriptor\n");
-                break;
-
-            default:
-                DEBUG("unhandled operation!\n");
-                rc = 1;
-                break;
-        }
-
-        return rc;
-    }
-    else if (ble_uuid_cmp(ctxt->chr->uuid, readonly_uuid) == 0) {
-
-        DEBUG("access to characteristic 'rw demo (read-only)'\n");
-
-        if (ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR) {
-            char random_digit;
-            /* get random char between '0' and '9' */
-            random_digit = 48 + (rand() % 10);
-
-            snprintf(str_answer, STR_ANSWER_BUFFER_SIZE,
-                     "new random number: %c", random_digit);
-            DEBUG("%s\n", str_answer);
-
-            rc = os_mbuf_append(ctxt->om, &str_answer, strlen(str_answer));
-
-            return rc;
-        }
-
-        return 0;
-    }
-
-    DEBUG("unhandled uuid!\n");
-    return 1;
-}
 
 static int gap_event_cb(struct ble_gap_event *event, void *arg)
 {
@@ -482,15 +605,27 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg)
                 nimble_autoadv_start(NULL);
                 return 0;
             }
+            // if (_conn_handle != 0)
+            // 		ble_gap_terminate(event->connect.conn_handle, uint8_t hci_reason)
             _conn_handle = event->connect.conn_handle;
             watch_state.bluetooth_pwr = BT_CONN;
             watchy_event_queue_add(EV_BT_CONN);
+#if IS_USED(MODULE_STDIO_NUS)
+			tsrb_clear(&_isrpipe_stdin.tsrb);
+            isrpipe_write_one(&_isrpipe_stdin, '\x03');
+#endif
             break;
 
         case BLE_GAP_EVENT_DISCONNECT:
             DEBUG("GAP disconnect\n");
             _conn_handle = 0;
             nimble_autoadv_start(NULL);
+#if IS_USED(MODULE_SHELL_LOCK)
+#if IS_USED(MODULE_STDIO_NUS)
+            isrpipe_write_one(&_isrpipe_stdin, '\x03');
+#endif
+			shell_lock_now();
+#endif
             watch_state.bluetooth_pwr = BT_ON;
             watchy_event_queue_add(EV_BT_CONN);
             break;
@@ -509,18 +644,35 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg)
 
         case BLE_GAP_EVENT_NOTIFY_TX:
             DEBUG("GAP notify TX\n");
-//            if (event->notify_tx.indication == 1 && (event->notify_tx.conn_handle == _conn_handle)) {
-//            	if (tsrb_avail(&_tsrb_nus_tx) > 0) {
-//	    	        gatt_svr_nus_tx();
-//            	} else
-//            		DEBUG("tx a0\n");
-//            }
+            if (event->notify_tx.indication == 1 && (event->notify_tx.conn_handle == _conn_handle)) {
+            }
             break;
 
         case BLE_GAP_EVENT_MTU:
-            DEBUG("GAP MTU\n");
+            DEBUG("GAP MTU: %d\n", event->mtu.value);
             break;
 
+		case BLE_GAP_EVENT_ENC_CHANGE:
+            DEBUG("GAP ENC CHANGE\n");
+			break;
+		case BLE_GAP_EVENT_PASSKEY_ACTION:
+            DEBUG("GAP PASSKEY ACTION\n");
+			break;
+		case BLE_GAP_EVENT_IDENTITY_RESOLVED:
+            DEBUG("GAP IDENTITY RESOLVED\n");
+			break;
+		case BLE_GAP_EVENT_REPEAT_PAIRING:
+            DEBUG("GAP REPEAT PAIRING\n");
+			break;
+		case BLE_GAP_EVENT_CONN_UPDATE:
+            DEBUG("GAP CONN UPDATE\n");
+			break;
+		case BLE_GAP_EVENT_CONN_UPDATE_REQ:
+            DEBUG("GAP CONN UPDATE REQ\n");
+			break;
+		case BLE_GAP_EVENT_L2CAP_UPDATE_REQ:
+            DEBUG("GAP L2CAP UPDATE REQ\n");
+			break;
         default:
             DEBUG("GAP unhandled: %d\n", event->type);
             break;
@@ -545,6 +697,10 @@ int watchy_gatt_init (void)
 
 	/* set the device name */
 	ble_svc_gap_device_name_set("Watchy");
+	// Wearable computer (watch size)
+	// according to
+	// https://specificationrefs.bluetooth.com/assigned-values/Appearance%20Values.pdf
+	ble_svc_gap_device_appearance_set(0x0086);
 	/* reload the GATT server to link our added services */
 	ble_gatts_start();
 

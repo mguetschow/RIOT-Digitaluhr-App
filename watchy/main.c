@@ -75,7 +75,7 @@
 // #include "rl2.h"
 
 static uint32_t button_ev = false;
-static char shell_thread_stack[THREAD_STACKSIZE_SMALL+THREAD_EXTRA_STACKSIZE_PRINTF];
+static char shell_thread_stack[THREAD_STACKSIZE_MEDIUM+THREAD_EXTRA_STACKSIZE_PRINTF];
 static char event_thread_stack[THREAD_STACKSIZE_SMALL+THREAD_EXTRA_STACKSIZE_PRINTF];
 
 watchy_state_t watch_state;
@@ -503,39 +503,24 @@ void *event_thread(void *arg)
 
 static bool rtc_second_cb(void *arg)
 {
-   (void) arg;
+	(void) arg;
 
-   watch_state.rtc_time++;
-   rtc_localtime(watch_state.rtc_time, &watch_state.clock);
+	watch_state.rtc_time++;
+	watch_state.clock.tm_sec = (int)(watch_state.rtc_time % 60);
+	watchy_event_queue_add(EV_SEC_TICK);
 
-   watchy_event_queue_add(EV_SEC_TICK);
-   // we just rolled over to a full minute
-   if (watch_state.clock.tm_sec == 0)
-     watchy_event_queue_add(EV_MIN_TICK);
-   // we just rolled over to a full hour
-   if (watch_state.clock.tm_sec == 0 && watch_state.clock.tm_min ==0)
-     watchy_event_queue_add(EV_HOUR_TICK);
+	if (watch_state.rtc_time % 60 == 0) {
+		rtc_localtime(watch_state.rtc_time, &watch_state.clock);
 
-#if 0
-   watch_state.clock.tm_sec++;
-   if (watch_state.clock.tm_sec > 59) {
-     watch_state.clock.tm_sec=0;
-     watch_state.clock.tm_min++;
-     watchy_event_queue_add(EV_MIN_TICK);
-   }
-   if (watch_state.clock.tm_min > 59) {
-     watch_state.clock.tm_min=0;
-     watch_state.clock.tm_hour++;
-     watchy_event_queue_add(EV_HOUR_TICK);
-   }
-   if (watch_state.clock.tm_hour > 23) {
-     watch_state.clock.tm_hour=0;
-     watch_state.clock.tm_mday++;
-     tm_fill_derived_values(&watch_state.clock);
-   }
-#endif
+		watchy_event_queue_add(EV_MIN_TICK);
 
-   return true;
+		// we just rolled over to a full hour
+		if (watch_state.clock.tm_min ==0) {
+			watchy_event_queue_add(EV_HOUR_TICK);
+		}
+	}
+
+	return true;
 }
 
 void lv_input_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
@@ -569,6 +554,9 @@ int main(void)
 	watch_state.clock.tm_hour = 8;
 	watch_state.clock.tm_min = 0;
 	watch_state.clock.tm_sec = 0;
+	watch_state.clock.tm_isdst = 1; // DST in effect
+	watch_state.timez = -1; // CET timezone
+	rtc_tm_normalize(&watch_state.clock);
 	watch_state.rtc_time = rtc_mktime(&watch_state.clock);
 
 	ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);

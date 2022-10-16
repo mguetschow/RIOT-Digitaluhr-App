@@ -38,6 +38,7 @@ ssize_t stdio_read(void* buffer, size_t count)
 
 ssize_t stdio_write(const void* buffer, size_t len)
 {
+	// if not connected, discard any output
 	if (watch_state.bluetooth_pwr != BT_CONN)
 		return len;
 

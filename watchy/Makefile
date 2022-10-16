@@ -19,29 +19,35 @@ EXTERNAL_MODULE_DIRS += watchy_modules
 QUIET ?= 1
 
 # to enable SEGGER RTT console on SWD
-#CFLAGS += -DRTT_CONSOLE
-#USEMODULE += stdio_rtt
+CFLAGS += -DRTT_CONSOLE
+USEMODULE += stdio_rtt
 
 # to enable console via BLE serial
 #USEMODULE += stdio_nimble
 
-USEMODULE += stdio_nus
+#USEMODULE += stdio_nus
 
 CFLAGS += -I$(CURDIR)/include/
 
 USEMODULE += tsrb
 USEMODULE += shell
-USEMODULE += shell_commands
+USEMODULE += shell_cmds_default
 USEMODULE += ps
+USEMODULE += schedstatistics
 USEMODULE += ztimer_sec
 USEMODULE += ztimer_msec
 USEMODULE += timex
 USEMODULE += rtc_utils
-ifneq ($(BOARD),native)
-USEMODULE += i2c_scan
-endif
+CFLAGS += -DRTC_NORMALIZE_COMPAT=1
+#ifneq ($(BOARD),native)
+#USEMODULE += i2c_scan
+#endif
 USEMODULE += lpm013m126
 USEMODULE += disp_dev
+
+USEMODULE += shell_lock
+USEMODULE += shell_lock_auto_locking
+CFLAGS += -DCONFIG_SHELL_LOCK_PASSWORD=\"123456\"
 
 USEPKG += lvgl
 USEMODULE += lvgl_core
@@ -90,6 +96,7 @@ USEMODULE += event_timeout
 #USEMODULE += mtd_mapper
 #USEMODULE += vfs
 USEMODULE += vfs_default
+#USEMODULE += shell_cmd_vfs
 #USEPKG += littlefs2
 #USEMODULE += constfs
 #USEMODULE += devfs

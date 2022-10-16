@@ -6,6 +6,29 @@
 
 #define TM_YEAR_OFFSET      (1900)
 
+#define ALERT_TYPE_SIMPLE	0x00
+#define ALERT_TYPE_EMAIL	0x01
+#define ALERT_TYPE_NEWS		0x02
+#define ALERT_TYPE_CALL		0x03
+#define ALERT_TYPE_MISSED_CALL	0x04
+#define ALERT_TYPE_SMS_MMS	0x05
+#define ALERT_TYPE_VOICE_MAIL	0x06
+#define ALERT_TYPE_SCHEDULE	0x07
+#define ALERT_TYPE_HIGH_PRIORITY	0x08
+#define ALERT_TYPE_INSTANT_MESSAGE	0x09
+#define ALERT_TYPE_SERVICE_SPECIFIC_1	0xfb
+#define ALERT_TYPE_SERVICE_SPECIFIC_2	0xfc
+#define ALERT_TYPE_SERVICE_SPECIFIC_3	0xfd
+#define ALERT_TYPE_SERVICE_SPECIFIC_4	0xfe
+#define ALERT_TYPE_SERVICE_SPECIFIC_5	0xff
+
+typedef struct {
+    struct tm when;
+    uint8_t type;
+    uint8_t num_new;
+    char *text;
+} alert_t;
+
 typedef struct {
     bool charger_present;
     bool charge_complete;
@@ -71,8 +94,9 @@ typedef struct {
 typedef struct {
     kernel_pid_t shell_thread_pid;
     kernel_pid_t event_thread_pid;
-    uint32_t rtc_time;
+    uint32_t rtc_time;			// seconds since epoch, the main RTC counter
     struct tm clock;			// the clock - it's a watch!
+    int8_t timez;			// time zone offset in hours from UTC
     uint8_t display_timeout;		// how long until sleep display
     power_supply_stat_t pwr_stat;	// current power supply state
     bool gnss_pwr;			// if GNSS is powered up or not

@@ -15,24 +15,30 @@ extern lv_font_t SourceSansProSemiBold14_4bpp;
 
 static void msgbox_event_cb(lv_event_t * e)
 {
-    lv_obj_t * obj = lv_event_get_current_target(e);
-    lv_obj_t *mbox = lv_event_get_user_data(e);
+	lv_obj_t * obj = lv_event_get_current_target(e);
+	lv_obj_t *mbox = lv_event_get_user_data(e);
 
-    DEBUG("Button %s clicked\n", lv_msgbox_get_active_btn_text(obj));
+	DEBUG("Button %s clicked\n", lv_msgbox_get_active_btn_text(obj));
 
-    if (strcmp("OK", lv_msgbox_get_active_btn_text(obj))==0)
-      board_power_off();
+	if (strcmp("OK", lv_msgbox_get_active_btn_text(obj))==0)
+		board_power_off();
 
-    lv_msgbox_close(mbox);
+	lv_msgbox_close(mbox);
 }
 
 void power_off_dialog(lv_obj_t *par)
 {
-    static const char * btns[] = {"OK", "Cancel", ""};
+	static const char * btns[] = {"#000000 OK# ", "#000000 Cancel# ", ""};
+    lv_obj_t *mbox1 = lv_msgbox_create(par, "Power Off", "Are you sure?", btns, false);
+	lv_obj_t *btns_o;
 
-    lv_obj_t * mbox1 = lv_msgbox_create(par, "Power Off", "Are you sure?", btns, false);
-    lv_obj_set_style_bg_color(mbox1, lv_color_black(), LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(mbox1, &SourceSansProSemiBold14_4bpp, LV_STATE_DEFAULT);
+	lv_obj_set_style_bg_color(mbox1, lv_color_black(), LV_STATE_DEFAULT);
+	lv_obj_set_style_text_font(mbox1, &lv_font_montserrat_16, LV_STATE_DEFAULT);
+
+	btns_o = lv_msgbox_get_btns(mbox1);
+	lv_btnmatrix_set_btn_ctrl_all(btns_o, LV_BTNMATRIX_CTRL_RECOLOR);
+	lv_obj_set_style_text_color(btns_o, lv_color_black(), LV_STATE_DEFAULT);
+
     lv_obj_add_event_cb(mbox1, msgbox_event_cb, LV_EVENT_VALUE_CHANGED, mbox1);
     lv_obj_center(mbox1);
 }
