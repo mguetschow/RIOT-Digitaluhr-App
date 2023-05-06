@@ -92,22 +92,23 @@ typedef struct {
 } hrm_state_t;
 
 typedef struct {
-    kernel_pid_t shell_thread_pid;
-    kernel_pid_t event_thread_pid;
-    uint32_t rtc_time;			// seconds since epoch, the main RTC counter
-    struct tm clock;			// the clock - it's a watch!
-    int8_t timez;			// time zone offset in hours from UTC
-    uint8_t display_timeout;		// how long until sleep display
-    power_supply_stat_t pwr_stat;	// current power supply state
-    bool gnss_pwr;			// if GNSS is powered up or not
-    bluetooth_stat_t bluetooth_pwr;			// if Bluetooth is powered
-    gnss_state_t gnss_state;		// GNSS/GPS sensor state
-    touchscreen_state_t touch_state;	// touchscreen state (last x/y etc.)
-    accel_state_t accel_state;
-    magnetometer_state_t magnetometer_state;
-    hrm_state_t hrm_state;
-    bool notification;			// toggles '!' icon in top row
-    char info[64];			// two line info text on bottom of main screen
+	kernel_pid_t shell_thread_pid;
+	kernel_pid_t event_thread_pid;
+	uint32_t rtc_time;					// seconds since epoch, the main RTC counter
+	struct tm clock;					// the clock - it's a watch!
+	int8_t timez;						// time zone offset in hours from UTC
+	uint8_t display_timeout;			// how long until sleep display
+	power_supply_stat_t pwr_stat;		// current power supply state
+	bool gnss_pwr;						// if GNSS is powered up or not
+	bluetooth_stat_t bluetooth_pwr;			// if Bluetooth is powered
+	gnss_state_t gnss_state;				// GNSS/GPS sensor state
+	touchscreen_state_t touch_state;		// touchscreen state (last x/y etc.)
+	accel_state_t accel_state;
+	magnetometer_state_t magnetometer_state;
+	hrm_state_t hrm_state;
+	bool notification;					// toggles '!' icon in top row
+	char info1[32];						// two line info text on bottom of main screen
+	char info2[32];
 } watchy_state_t;
 
 extern watchy_state_t watch_state;
