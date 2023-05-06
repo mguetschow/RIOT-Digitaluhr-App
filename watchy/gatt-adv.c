@@ -278,6 +278,7 @@ static int gatt_svc_immediate_alert(
 			om_len = OS_MBUF_PKTLEN(ctxt->om);
 			rc = ble_hs_mbuf_to_flat(ctxt->om, &ialert,
 				sizeof ialert, &om_len);
+			watchy_event_queue_add(EV_BT_IALERT);
 			return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
 			break;
 		default:
