@@ -164,7 +164,7 @@ static const uint16_t bat_mv_percent[] = {
 // returns true if succeeded and values valid
 // false otherwise
 // ca. 3500mV - 4200mV ~= 0% - 100%
-#define MIN_BAT_VOLT 3300
+#define MIN_BAT_VOLT 3400
 bool get_power_stat(power_supply_stat_t *pwr)
 {
 	int32_t bvolt;
@@ -364,140 +364,131 @@ static void xdisplay_on(void)
 
 void *event_thread(void *arg)
 {
-    (void) arg;
-    watchy_event_t ev;
-    bool wake_lvgl=false;
-    static uint8_t bl_timeout=DISPLAY_TIMEOUT;
+	(void) arg;
+	watchy_event_t ev;
+	bool wake_lvgl=false;
+	static uint8_t bl_timeout=DISPLAY_TIMEOUT;
  
-    while (true) {
-      while (watchy_event_queue_length()) {
-          // DEBUG("ev=%d ", watchy_event_queue_length());
-          ev=watchy_event_queue_get();
-          // DEBUG("%d\n", ev);
-          switch (ev) {
-              case EV_MSEC_TICK:
-                  break;
-              case EV_SEC_TICK:
-                  if (bl_timeout) {
-                    bl_timeout--;
-                  } else {
-                      //lpm013m126_off();
-                      xdisplay_off();
-                  }
-                  break;
-              case EV_MIN_TICK:
-                  // wake_lvgl=true;
-                  weather_update_readings(&watch_state.clock);
-                  get_power_stat(&watch_state.pwr_stat);
-                  // update_main_screen();
-                  break;
-              case EV_HOUR_TICK:
-                  break;
-              case EV_TOUCH:
-                  cst816s_read(&_input_dev, &_tdata);
-                  // print_tdata(&_tdata);
-                  watch_state.touch_state.x = _tdata.x;
-                  watch_state.touch_state.y = _tdata.y;
-                  if (_tdata.action == CST816S_TOUCH_UP) {
-                    switch (_tdata.gesture) {
-                      case CST816S_GESTURE_SLIDE_UP:
-                        watch_state.touch_state.gesture = TOUCH_G_SWP_UP;
-                        break;
-                      case CST816S_GESTURE_SLIDE_DOWN:
-                        watch_state.touch_state.gesture = TOUCH_G_SWP_DOWN;
-                        break;
-                      case CST816S_GESTURE_SLIDE_LEFT:
-                        watch_state.touch_state.gesture = TOUCH_G_SWP_LEFT;
-                        break;
-                      case CST816S_GESTURE_SLIDE_RIGHT:
-                        watch_state.touch_state.gesture = TOUCH_G_SWP_RIGHT;
-                        break;
-                      case CST816S_GESTURE_LONG_PRESS:
-                        watch_state.touch_state.gesture = TOUCH_G_LONG_PRESS;
-                        break;
-                      default:
-                        watch_state.touch_state.gesture = TOUCH_G_NONE;
-                        break;
-                    }
-                    wake_lvgl=true;
-                    xdisplay_on();
-                    bl_timeout=DISPLAY_TIMEOUT;
-                  } else if (_tdata.action == CST816S_TOUCH_DOWN && _tdata.gesture==CST816S_GESTURE_SINGLE_CLICK) {
-                        watch_state.touch_state.gesture = TOUCH_G_CLICK;
-                        watch_state.touch_state.clicked = true;
-                        wake_lvgl=true;
-                        xdisplay_on();
-                        bl_timeout=DISPLAY_TIMEOUT;
-                   } else
-                    watch_state.touch_state.gesture = TOUCH_G_NONE;
-                  break;
-              case EV_BUTTON:
-                  DEBUG("btn\n");
-                  bl_timeout=DISPLAY_TIMEOUT;
-                  //lpm013m126_on();
-                  xdisplay_on();
-#if 0
-                  if (lv_main_screen==NULL) {
-                      lv_main_screen = create_main_screen();
-                      update_main_screen();
-                      lv_scr_load_anim(lv_main_screen, LV_SCR_LOAD_ANIM_MOVE_TOP, 250, 0, true);
-                      lv_second_screen = NULL;
-                  }
-#endif
-                  break;
-              case EV_ACCEL:
-                  DEBUG("acc\n");
-                  break;
-              case EV_MAGNETOMETER:
-                  DEBUG("mag\n");
-                  break;
-              case EV_GNSS:
-              	  // DEBUG("g: %s\n", nmea_line);
-                  handle_gnss_event(nmea_line, &watch_state);
-                  break;
-              case EV_ATMOSPHERE:
-                  DEBUG("atmo\n");
-                  break;
-              case EV_DISPLAY_TIMEOUT:
-                  break;
-              case EV_POWER_CHANGE:
-                  get_power_stat(&watch_state.pwr_stat);
-                  // update_main_screen();
-                  bl_timeout=DISPLAY_TIMEOUT;
-                  //lpm013m126_on();
-                  xdisplay_on();
-                  // wake_lvgl = true;
-                  break;
-              case EV_UPDATE_DISPLAY:
-                  wake_lvgl = true;
-                  break;
-              case EV_INFO_NOTE:
-                  break;
-              case EV_BT_CONN:
-                  break;
-              case EV_BT_NUS: {
-                  char buf[32];
-                  watchy_gatt_nus_get_rx(buf, 30);
-                  DEBUG("NUS RX '%s'\n", buf);
-                  gatt_svr_nus_tx_buf(buf, strlen(buf));
-                  break;
-              }
-              default:
-                  DEBUG("no event?\n");
-                  break;
-          }; // switch()
-          // when system is done let the screen know
-          screens_handle_event(ev);
-      } // while (ev)
-      // once done with all events, do housekeeping
-      if (wake_lvgl) {
-          wake_lvgl = false;
-          lvgl_wakeup();
-      }
-      thread_sleep();
-    } // while(true)
+	while (true) {
+		while (watchy_event_queue_length()) {
+			// DEBUG("ev=%d ", watchy_event_queue_length());
+			ev=watchy_event_queue_get();
+			// DEBUG("%d\n", ev);
+			switch (ev) {
+				case EV_MSEC_TICK:
+					break;
+				case EV_SEC_TICK:
+					if (bl_timeout) {
+						bl_timeout--;
+					} else {
+						//lpm013m126_off();
+						xdisplay_off();
+					}
+					break;
+				case EV_MIN_TICK:
+					weather_update_readings(&watch_state.clock);
+					get_power_stat(&watch_state.pwr_stat);
+					break;
+				case EV_HOUR_TICK:
+					break;
+				case EV_TOUCH:
+					cst816s_read(&_input_dev, &_tdata);
+					// print_tdata(&_tdata);
+					watch_state.touch_state.x = _tdata.x;
+					watch_state.touch_state.y = _tdata.y;
+					if (_tdata.action == CST816S_TOUCH_UP) {
+						switch (_tdata.gesture) {
+							case CST816S_GESTURE_SLIDE_UP:
+								watch_state.touch_state.gesture = TOUCH_G_SWP_UP;
+								break;
+							case CST816S_GESTURE_SLIDE_DOWN:
+								watch_state.touch_state.gesture = TOUCH_G_SWP_DOWN;
+								break;
+							case CST816S_GESTURE_SLIDE_LEFT:
+								watch_state.touch_state.gesture = TOUCH_G_SWP_LEFT;
+								break;
+							case CST816S_GESTURE_SLIDE_RIGHT:
+								watch_state.touch_state.gesture = TOUCH_G_SWP_RIGHT;
+								break;
+							case CST816S_GESTURE_LONG_PRESS:
+								watch_state.touch_state.gesture = TOUCH_G_LONG_PRESS;
+								break;
+							default:
+								watch_state.touch_state.gesture = TOUCH_G_NONE;
+								break;
+						}
+						wake_lvgl=true;
+						xdisplay_on();
+						bl_timeout=DISPLAY_TIMEOUT;
+					} else if (_tdata.action == CST816S_TOUCH_DOWN && _tdata.gesture==CST816S_GESTURE_SINGLE_CLICK) {
+						watch_state.touch_state.gesture = TOUCH_G_CLICK;
+						watch_state.touch_state.clicked = true;
+						wake_lvgl=true;
+						xdisplay_on();
+						bl_timeout=DISPLAY_TIMEOUT;
+					} else
+						watch_state.touch_state.gesture = TOUCH_G_NONE;
+					break;
+				case EV_BUTTON:
+					DEBUG("btn\n");
+					bl_timeout=DISPLAY_TIMEOUT;
+					//cst816s_init(&_input_dev, &_cst816s_input_params, touch_cb, NULL);
+					//lpm013m126_on();
+					xdisplay_on();
+					break;
+				case EV_ACCEL:
+					DEBUG("acc\n");
+					break;
+				case EV_MAGNETOMETER:
+					DEBUG("mag\n");
+					break;
+				case EV_GNSS:
+					// DEBUG("g: %s\n", nmea_line);
+					handle_gnss_event(nmea_line, &watch_state);
+					break;
+				case EV_ATMOSPHERE:
+					DEBUG("atmo\n");
+					break;
+				case EV_DISPLAY_TIMEOUT:
+					break;
+				case EV_POWER_CHANGE:
+					get_power_stat(&watch_state.pwr_stat);
+					bl_timeout=DISPLAY_TIMEOUT;
+					//lpm013m126_on();
+					xdisplay_on();
+					break;
+				case EV_UPDATE_DISPLAY:
+					wake_lvgl = true;
+					break;
+				case EV_INFO_NOTE:
+					break;
+				case EV_BT_CONN:
+					break;
+				case EV_BT_NUS: {
+					char buf[32];
+					watchy_gatt_nus_get_rx(buf, 30);
+					DEBUG("NUS RX '%s'\n", buf);
+					gatt_svr_nus_tx_buf(buf, strlen(buf));
+					break;
+				}
+				case EV_BT_IALERT:
+					break;
+				default:
+					DEBUG("no event?\n");
+					break;
+			}; // switch()
+			// when system is done let the screen know
+			screens_handle_event(ev);
+		} // while (ev)
+		// once done with all events, do housekeeping
+		if (wake_lvgl) {
+			wake_lvgl = false;
+			lvgl_wakeup();
+		}
+		thread_sleep();
+	} // while(true)
 
-    return NULL;
+	return NULL;
 }
 
 
@@ -555,7 +546,8 @@ int main(void)
 	watch_state.clock.tm_min = 0;
 	watch_state.clock.tm_sec = 0;
 	watch_state.clock.tm_isdst = 1; // DST in effect
-	watch_state.timez = -1; // CET timezone
+	watch_state.timez = +1; // CET timezone
+	//watch_state.timez = -8; // PST timezone
 	rtc_tm_normalize(&watch_state.clock);
 	watch_state.rtc_time = rtc_mktime(&watch_state.clock);
 
@@ -565,7 +557,7 @@ int main(void)
 	watch_state.gnss_pwr = false;
 	watch_state.bluetooth_pwr = BT_OFF;
 
-	strncpy(watch_state.info, "This is a way too long text to be displayed in these two lines" , 63);
+	//strncpy(watch_state.info, "This is a way too long text to be displayed in these two lines" , 63);
 
 	// init LCD, display logo and enable backlight
 	// lpm013m126_init(&_disp_dev, &lpm013m126_params);
@@ -601,7 +593,7 @@ int main(void)
 		shell_thread, NULL, "shell_thread");
 	//DEBUG("shellthr=%d\n", watch_state.shell_thread_pid);
 
-   	get_power_stat(&watch_state.pwr_stat);
+	get_power_stat(&watch_state.pwr_stat);
 
 	lv_indev_drv_init(&indev_drv);
 	indev_drv.type = LV_INDEV_TYPE_POINTER;
@@ -611,34 +603,30 @@ int main(void)
 	screens_init();
 
 	watchy_event_queue_add(EV_SEC_TICK);
-	//thread_wakeup(watch_state.event_thread_pid);
 
 	watchy_gatt_init();
-	//extern void stdio_ble_init(void);
-	//stdio_ble_init();
-
 
 	switch (bmx280_init(&bmx280_dev, &bmx280_params[0])) {
-        case BMX280_ERR_BUS:
-            DEBUG("[Error] Something went wrong when using the I2C bus");
-            return 1;
-        case BMX280_ERR_NODEV:
-            DEBUG("[Error] Unable to communicate with any BMX280 device");
-            return 1;
-        default:
-            /* all good -> do nothing */
-            break;
-        }
-        // DEBUG("BMX280 Initialization successful\n");
+		case BMX280_ERR_BUS:
+			DEBUG("[Error] Something went wrong when using the I2C bus");
+			return 1;
+		case BMX280_ERR_NODEV:
+			DEBUG("[Error] Unable to communicate with any BMX280 device");
+			return 1;
+		default:
+			/* all good -> do nothing */
+			break;
+	}
+	// DEBUG("BMX280 Initialization successful\n");
 
-        kx023_init();
+	kx023_init();
 
-        magneto_init();
+	magneto_init();
 
-        vc31_init();
+	vc31_init();
 
-        weatherstation_init();
-        weather_update_readings(&watch_state.clock);
+	weatherstation_init();
+	weather_update_readings(&watch_state.clock);
 
 	lvgl_run();
 
