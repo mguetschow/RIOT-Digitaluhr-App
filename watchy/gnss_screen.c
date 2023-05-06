@@ -30,7 +30,7 @@ static void update_gnss(void)
 {
     char lstr[32];
 
-    snprintf(lstr, 31, "%s %d/%d# ", watch_state.gnss_state.fix_valid ? "#00ff00" : "#ffffff", watch_state.gnss_state.sats_in_fix, watch_state.gnss_state.sats_in_view);
+    snprintf(lstr, 31, "%s %d / %d# ", watch_state.gnss_state.fix_valid ? "#00ff00" : "#ffffff", watch_state.gnss_state.sats_in_fix, watch_state.gnss_state.sats_in_view);
     lv_label_set_text(sats_l, lstr);
 
     snprintf(lstr, 31, "%4.4f", watch_state.gnss_state.lat);
