@@ -34,7 +34,7 @@ struct weatherpoint *weather_get_24(void)
 int weather_get_trend(void)
 {
 	trend = 0;
-	for (int i=0; i<23; i++) {
+	for (int i=0; i<24; i++) {
 		if ((historic[i].pressure != 0) && (historic[i+1].pressure) != 0) {
 			trend += (int)((int)(historic[(i+1)%24].pressure / 100) - (int)(historic[i].pressure / 100));
 		}
@@ -49,7 +49,7 @@ void weather_update_readings(struct tm *clock)
 	current.pressure = bmx280_read_pressure(&bmx280_dev);
 
 	//DEBUG("ws %d.%d C @ %ld.%ld hPa\n", current.temp/100, current.temp%100, current.pressure/100, current.pressure%100);
-	if (clock->tm_hour < 23) {
+	if (clock->tm_hour < 24) {
 		if (clock->tm_min != 0) { // gliding average
 			if ((historic[clock->tm_hour].temp != 0) && (historic[clock->tm_hour].pressure != 0)) {
 				historic[clock->tm_hour].temp += current.temp;
