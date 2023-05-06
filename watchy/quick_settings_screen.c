@@ -95,7 +95,7 @@ static lv_obj_t *create_quick_settings_screen(void)
     lv_obj_set_style_bg_color(btnm1, lv_color_black(), LV_STATE_DEFAULT);
     lv_obj_set_style_bg_color(btnm1, lv_color_make(0,0,0xff), LV_PART_ITEMS | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_color(btnm1, lv_color_make(0,0xff,0), LV_PART_ITEMS | LV_STATE_CHECKED);
-    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_14, LV_STATE_DEFAULT);
+//    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_14, LV_STATE_DEFAULT);
 //    lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_36, LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(btnm1, &lv_font_montserrat_24, LV_STATE_DEFAULT);
     lv_btnmatrix_set_map(btnm1, btnm_map);
