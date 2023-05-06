@@ -19,6 +19,7 @@ extern bmx280_t bmx280_dev;
 #include <fcntl.h>
 #include <errno.h>
 #include <tiny_strerror.h>
+#include <ztimer.h>
 
 #define ENABLE_DEBUG 1
 #include "debug.h"
@@ -63,6 +64,8 @@ static int _cmd_off(int argc, char **argv)
         (void) argc;
         (void) argv;
 
+        printf("5 sec to power off\n");
+        ztimer_sleep(ZTIMER_MSEC, 5000);
         board_power_off();
 
         return 0;
@@ -216,12 +219,20 @@ static int _cmd_mag(int argc, char **argv)
 
 static int _cmd_info(int argc, char **argv)
 {
-    if (argc==1 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
-        printf("usage: %s [on|off|get]\n", argv[0]);
-        return 0;
+	uint8_t nr=0;
+
+    if (argc<3 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
+        printf("usage: %s <1/2> <text>\n", argv[0]);
+        return 1;
     }
 
-    strncpy(watch_state.info, argv[1], 63);
+	nr=atoi(argv[1]);
+	if (nr < 1 || nr > 2)
+		return 1;
+	if (nr==1)
+		strncpy(watch_state.info1, argv[2], 32);
+	if (nr==2)
+		strncpy(watch_state.info2, argv[2], 32);
     watchy_event_queue_add(EV_INFO_NOTE);
     //thread_wakeup(watch_state.event_thread_pid);
     return 0;
@@ -341,8 +352,8 @@ static int _cmd_cat(int argc, char **argv)
 	}
 	int fd = vfs_open(tpath, O_RDONLY, 0);
 	if (fd < 0) {
-		//printf("Error opening file \"%s\": %s\n", tpath, tiny_strerror(fd));
-		printf("Error opening file \"%s\"\n", tpath);
+		printf("Error opening file \"%s\": %s\n", tpath, tiny_strerror(fd));
+		//printf("Error opening file \"%s\"\n", tpath);
 		return 3;
 	}
 	{
@@ -355,6 +366,33 @@ static int _cmd_cat(int argc, char **argv)
 	}
 	vfs_close(fd);
 	printf("\n");
+
+	return 0;
+}
+
+static int _cmd_mkdir(int argc, char **argv)
+{
+	char tpath[VFS_PATH_LEN];
+	if (argc < 2) {
+        printf("usage: %s <dir>\n", argv[0]);
+		return 1;
+	}
+
+	if (argv[1][0] == '/') {
+		strcpy(tpath, argv[1]);
+	} else {
+		// relative path name
+		strcpy(tpath, _vfs_path);
+		strcat(tpath, "/");
+		strcat(tpath, argv[1]);
+	}
+	vfs_normalize_path(tpath, tpath, strlen(tpath) + 1);
+
+	int res = vfs_mkdir(tpath, 0);
+	if (res < 0) {
+		printf("mkdir ERR: %s\n", tiny_strerror(res));
+		return 2;
+	}
 
 	return 0;
 }
@@ -391,6 +429,7 @@ static const shell_command_t shell_commands[] = {
         { "info", "set info text", _cmd_info },
         { "ls", "list directory contents", _cmd_ls },
         { "mag", "read mag once", _cmd_mag },
+        { "mkdir", "create directory", _cmd_mkdir },
         { "off", "power off device", _cmd_off },
         { "pr", "get athmo pressure", _cmd_atm_pressure },
         { "pwd", "get current path", _cmd_pwd },
