@@ -54,7 +54,7 @@ void handle_gnss_event(char *nmea_line, watchy_state_t *watch_state)
 					// time is valid now
 					watch_state->gnss_state.time_valid = true;
 					// compensate for time zone and DST
-					watch_state->clock.tm_hour = frame.time.hours - watch_state->timez + ((watch_state->clock.tm_isdst > 0) ? 1 : 0);
+					watch_state->clock.tm_hour = frame.time.hours + watch_state->timez + ((watch_state->clock.tm_isdst > 0) ? 1 : 0);
 					watch_state->clock.tm_min = frame.time.minutes;
 					watch_state->clock.tm_sec = frame.time.seconds;
 					rtc_tm_normalize(&watch_state->clock);
