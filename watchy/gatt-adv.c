@@ -625,7 +625,7 @@ static int gap_event_cb(struct ble_gap_event *event, void *arg)
 #if IS_USED(MODULE_STDIO_NUS)
             isrpipe_write_one(&_isrpipe_stdin, '\x03');
 #endif
-			shell_lock_now();
+			shell_lock_do_lock();
 #endif
             watch_state.bluetooth_pwr = BT_ON;
             watchy_event_queue_add(EV_BT_CONN);
