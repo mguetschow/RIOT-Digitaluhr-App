@@ -443,7 +443,7 @@ static int gatt_svr_chr_access_device_info(
 			assert(ctxt->op == BLE_GATT_ACCESS_OP_READ_CHR);
 			snprintf(str_answer, STR_ANSWER_BUFFER_SIZE,
 				"You are running RIOT on a(n) %s board, "
-				"which features a(n) %s MCU.", RIOT_BOARD, RIOT_MCU);
+				"which features a(n) %s MCU.", RIOT_BOARD, RIOT_CPU);
 
 			rc = os_mbuf_append(ctxt->om, str_answer, strlen(str_answer));
 			break;

@@ -39,9 +39,6 @@ USEMODULE += ztimer_msec
 USEMODULE += timex
 USEMODULE += rtc_utils
 CFLAGS += -DRTC_NORMALIZE_COMPAT=1
-#ifneq ($(BOARD),native)
-#USEMODULE += i2c_scan
-#endif
 USEMODULE += lpm013m126
 USEMODULE += disp_dev
 
