@@ -101,11 +101,13 @@ static int _cmd_bl(int argc, char **argv)
         if (bright) {
             pwm_set(PWM_DEV(0), 0, bright);
             pwm_poweron(PWM_DEV(0));
+            watch_state.display_brightness = bright;
         } else {
             pwm_set(PWM_DEV(0), 0, 0);
             pwm_poweroff(PWM_DEV(0));
         }
-    }
+    } else
+    	printf("%d\n", watch_state.display_brightness);
 
     return 0;
 }
@@ -200,6 +202,9 @@ static int _cmd_hrm(int argc, char **argv)
     if (strncmp(argv[1], "off", 3) == 0) {
         gpio_clear(HRM_PWR);
     }
+    if (strncmp(argv[1], "get", 3) == 0) {
+        printf("not implemented yet\n");;
+    }
 
     return 0;
 }
@@ -213,6 +218,7 @@ static int _cmd_mag(int argc, char **argv)
 
     ret = magneto_read(&x, &y, &z);
     printf("r=0x%02x x=%d y=%d z=%d\n", ret, x, y, z);
+    printf("c=%d\n", magneto_course(x, y, z));
 
     return 0;
 }

@@ -74,10 +74,12 @@ static void screens_handle_input_event(watchy_event_t event)
           break;
       };
     } else if (event == EV_BUTTON) {
+#if 0
       cur_screen=&main_screen;
       cur_screen->scr=cur_screen->create();
       lv_scr_load_anim(cur_screen->scr, LV_SCR_LOAD_ANIM_NONE, SCREEN_TRANSITION_TIME, 0, true);
       watchy_event_queue_add(EV_UPDATE_DISPLAY);
+#endif
     }
     if (cur_screen != prev_scr) {
       if (prev_scr->cleanup != NULL)

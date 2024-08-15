@@ -56,9 +56,14 @@ USEMODULE += lvgl_font
 USEMODULE += lvgl_widget_label
 USEMODULE += lvgl_widget_btn
 USEMODULE += lvgl_widget_btnmatrix
+USEMODULE += lvgl_widget_bar
+USEMODULE += lvgl_widget_line
+USEMODULE += lvgl_widget_textarea
 USEMODULE += lvgl_extra_layout_flex
 USEMODULE += lvgl_extra_widget_msgbox
 USEMODULE += lvgl_extra_widget_meter
+#USEMODULE += lvgl_extra_widget_spinbox
+USEMODULE += lvgl_widget_checkbox
 
 USEMODULE += lvgl_misc
 USEMODULE += lvgl_draw

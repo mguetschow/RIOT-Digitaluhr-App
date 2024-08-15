@@ -104,16 +104,45 @@ static lv_obj_t *create_weather_now_screen(void)
 static lv_obj_t *create_weather_24_screen(void)
 {
     lv_obj_t *lv_weather_24_screen;
-    lv_obj_t *label;
+    // lv_obj_t *label;
+    struct weatherpoint *last24 = weather_get_24();
+    // lv_point_t line_points= { {0, 52}, {176, 52}};
+    // static lv_point_t line_hr_points[] = { {0, 52}, {176, 52}};
+    uint32_t pmin=900000;
+    uint32_t pmax=0;
 
     lv_weather_24_screen = lv_obj_create(NULL);
 
-    label = lv_label_create(lv_weather_24_screen);
-    lv_label_set_recolor(label, true);
-    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, LV_STATE_DEFAULT);
-    lv_obj_set_pos(label, 10, 90);
-    lv_label_set_text(label, "#ffffff To be done.# ");
+    for (int i=0; i<24; i++) {
+      if (last24[i].pressure < pmin)
+        pmin = last24[i].pressure;
+      if (last24[i].pressure > pmax)
+        pmax = last24[i].pressure;
+    }
 
+    for (int i=0; i<24; i++) {
+        lv_obj_t *pbar = lv_bar_create(lv_weather_24_screen);
+        lv_bar_set_range(pbar, pmin / 100, pmax / 100);
+        lv_obj_set_size(pbar, 5, 120);
+        lv_obj_set_pos(pbar, 15+(i*6), 30);
+        lv_bar_set_value(pbar, last24[i].pressure / 100, LV_ANIM_OFF);
+    }
+
+    /*Create style*/
+    static lv_style_t style_line;
+    lv_style_init(&style_line);
+    lv_style_set_line_width(&style_line, 2);
+    //lv_style_set_line_color(&style_line, lv_palette_main(WHITE));
+    lv_style_set_line_rounded(&style_line, true);
+
+#if 0
+    /*Create a line and apply the new style*/
+    lv_obj_t * line1;
+    line1 = lv_line_create(lv_weather_24_screen);
+    lv_line_set_points(line1, line_points, 2);     /*Set the points*/
+    lv_obj_add_style(line1, &style_line, 0);
+    lv_obj_set_pos(line1, 0, 30);
+#endif
     return lv_weather_24_screen;
 }
 

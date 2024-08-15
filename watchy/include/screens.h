@@ -9,6 +9,7 @@
 
 #include "main_screen.h"
 #include "quick_settings_screen.h"
+#include "settings_screen.h"
 #include "weather_screen.h"
 #include "gnss_screen.h"
 

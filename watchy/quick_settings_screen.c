@@ -20,7 +20,7 @@ static void msgbox_event_cb(lv_event_t * e)
 
 	DEBUG("Button %s clicked\n", lv_msgbox_get_active_btn_text(obj));
 
-	if (strcmp("OK", lv_msgbox_get_active_btn_text(obj))==0)
+	if (strcmp("#000000 OK# ", lv_msgbox_get_active_btn_text(obj))==0)
 		board_power_off();
 
 	lv_msgbox_close(mbox);
@@ -70,6 +70,10 @@ static void settings_button_handler(lv_event_t * e)
 				gnss_power_control(watch_state.gnss_pwr);
 				break;
 			case 2:
+				cur_screen = &settings_screen;
+				cur_screen->scr = cur_screen->create();
+				lv_scr_load_anim(cur_screen->scr, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+				watchy_event_queue_add(EV_UPDATE_DISPLAY);
 				break;
 			case 3:
 				power_off_dialog(lv_obj_get_parent(obj));

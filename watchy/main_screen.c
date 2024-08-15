@@ -42,6 +42,7 @@ static void update_screen(void)
            }
            strncat(label_text, satnum, MAX_LABEL_LEN-1);
      }
+
      lv_label_set_text(top_left_icons, label_text);
 
      // icons in the top middle

@@ -4,6 +4,7 @@
 #include <stdio_rtt.h>
 #endif
 #include <string.h>
+#include <math.h>
 
 #include "board.h"
 #include "irq.h"
@@ -39,6 +40,23 @@
 #define MAGNETO_Z_L 0x53
 #define MAGNETO_Z_H 0x54
 
+// Y = hochachse, -90 deg
+
+#ifndef M_PI
+#define M_PI    (3.14159265358979323846)
+#endif
+
+static uint16_t xmin=0xffff, xmax=0, ymin=0xffff, ymax=0, zmin=0xffff, zmax=0;
+
+int magneto_course(uint16_t x, uint16_t y, uint16_t z)
+{
+    int course=-1;
+    (void) z;
+
+    course = atan2(x, y) * 180 / M_PI;
+
+    return course;
+}
 
 int magneto_read(uint16_t *x, uint16_t *y, uint16_t *z)
 {
@@ -46,23 +64,38 @@ int magneto_read(uint16_t *x, uint16_t *y, uint16_t *z)
     uint8_t val;
 
     i2c_acquire(MAGN_I2C_DEV);
+
+    val = 0;
     do {
         if (i2c_read_regs(MAGN_I2C_DEV, MAGN_I2C_ADDR, MAGNETO_STATUS, &xyz_val, 7, 0) < 0) {
             DEBUG("magneto i2c_read_regs() failed\n");
             goto fail;
         }
-        if (xyz_val[0] == 0x02)
+        if (xyz_val[0] == MAGNETO_STATUS_OK)
             break;
-    } while ((xyz_val[0] == 0x16) || (xyz_val[0] == 0x32));
+        if (++val > 200)
+            goto fail;
+    } while (xyz_val[0] & (MAGNETO_STATUS_UN2 | MAGNETO_STATUS_BUSY));
 
-    i2c_read_regs(MAGN_I2C_DEV, MAGN_I2C_ADDR, MAGNETO_SINGLE, &val, 1, 0);
 
-    i2c_release(MAGN_I2C_DEV);
-
+#if 0
     *y = xyz_val[1] | (xyz_val[2] << 8);
     *x = xyz_val[3] | (xyz_val[4] << 8);
     *z = xyz_val[5] | (xyz_val[6] << 8);
+#else
+    *y = xyz_val[2] | (xyz_val[1] << 8);
+    if (*y > ymax) ymax = *y;
+    if (*y < ymin) ymin = *y;
+    *x = xyz_val[4] | (xyz_val[3] << 8);
+    if (*x > xmax) xmax = *x;
+    if (*x < xmin) xmin = *x;
+    *z = xyz_val[6] | (xyz_val[5] << 8);
+    if (*z > zmax) zmax = *z;
+    if (*z < zmin) zmin = *z;
+#endif
+    i2c_read_regs(MAGN_I2C_DEV, MAGN_I2C_ADDR, MAGNETO_SINGLE, &val, 1, 0);
 
+    i2c_release(MAGN_I2C_DEV);
     return xyz_val[0];
 
 fail:

@@ -82,7 +82,8 @@ watchy_state_t watch_state;
 
 static char nmea_line[NMEA_LINE_BUF_LEN];
 
-#define DISPLAY_TIMEOUT 5
+#define DISPLAY_TIMEOUT 10
+#define DISPLAY_LOCK_TIMEOUT 10
 
 bmx280_t bmx280_dev;
 static const bmx280_params_t bmx280_params[] =
@@ -164,7 +165,7 @@ static const uint16_t bat_mv_percent[] = {
 // returns true if succeeded and values valid
 // false otherwise
 // ca. 3500mV - 4200mV ~= 0% - 100%
-#define MIN_BAT_VOLT 3400
+#define MIN_BAT_VOLT 3500
 bool get_power_stat(power_supply_stat_t *pwr)
 {
 	int32_t bvolt;
@@ -345,6 +346,9 @@ static void xdisplay_off(void)
     _xdisplay_on = false;
   }
   gpio_toggle(LCD_EXTCOMIN);
+  // if we are charging, no need to disable the touchscreen
+//  if (!watch_state.pwr_stat.charger_present)
+//	cst816s_deep_sleep(&_input_dev);
 }
 
 static void xdisplay_on(void)
@@ -358,6 +362,7 @@ static void xdisplay_on(void)
     pwm_poweron(PWM_DEV(0));
     _xdisplay_on=true;
   }
+//  cst816s_reset(&_input_dev);
 }
 #endif
 
@@ -367,7 +372,6 @@ void *event_thread(void *arg)
 	(void) arg;
 	watchy_event_t ev;
 	bool wake_lvgl=false;
-	static uint8_t bl_timeout=DISPLAY_TIMEOUT;
  
 	while (true) {
 		while (watchy_event_queue_length()) {
@@ -376,15 +380,23 @@ void *event_thread(void *arg)
 			// DEBUG("%d\n", ev);
 			switch (ev) {
 				case EV_MSEC_TICK:
+					if ((ztimer_now(ZTIMER_MSEC) % 10) == 0) {
+						uint16_t x,y,z;
+						magneto_read(&x, &y, &z);
+						printf("x=%05d y=%05d z=%05d\r", x, y, z);
+						//printf("c=%d\n", magneto_course(x, y, z));
+					}
 					break;
-				case EV_SEC_TICK:
-					if (bl_timeout) {
-						bl_timeout--;
+				case EV_SEC_TICK: {
+					if (watch_state.display_timeout) {
+						watch_state.display_timeout--;
 					} else {
 						//lpm013m126_off();
 						xdisplay_off();
+						//cst816s_deep_sleep(&_input_dev);
 					}
 					break;
+					}
 				case EV_MIN_TICK:
 					weather_update_readings(&watch_state.clock);
 					get_power_stat(&watch_state.pwr_stat);
@@ -419,21 +431,23 @@ void *event_thread(void *arg)
 						}
 						wake_lvgl=true;
 						xdisplay_on();
-						bl_timeout=DISPLAY_TIMEOUT;
+						watch_state.display_timeout=DISPLAY_TIMEOUT;
 					} else if (_tdata.action == CST816S_TOUCH_DOWN && _tdata.gesture==CST816S_GESTURE_SINGLE_CLICK) {
 						watch_state.touch_state.gesture = TOUCH_G_CLICK;
 						watch_state.touch_state.clicked = true;
 						wake_lvgl=true;
 						xdisplay_on();
-						bl_timeout=DISPLAY_TIMEOUT;
+						watch_state.display_timeout=DISPLAY_TIMEOUT;
 					} else
 						watch_state.touch_state.gesture = TOUCH_G_NONE;
 					break;
 				case EV_BUTTON:
-					DEBUG("btn\n");
-					bl_timeout=DISPLAY_TIMEOUT;
+					// DEBUG("btn\n");
+					watch_state.display_timeout=DISPLAY_TIMEOUT;
+					//cst816s_reset(&_input_dev);
 					//cst816s_init(&_input_dev, &_cst816s_input_params, touch_cb, NULL);
 					//lpm013m126_on();
+					wake_lvgl=true;
 					xdisplay_on();
 					break;
 				case EV_ACCEL:
@@ -453,7 +467,7 @@ void *event_thread(void *arg)
 					break;
 				case EV_POWER_CHANGE:
 					get_power_stat(&watch_state.pwr_stat);
-					bl_timeout=DISPLAY_TIMEOUT;
+					watch_state.display_timeout=DISPLAY_TIMEOUT;
 					//lpm013m126_on();
 					xdisplay_on();
 					break;
@@ -491,6 +505,16 @@ void *event_thread(void *arg)
 	return NULL;
 }
 
+
+#if 0
+static bool rtc_msecond_cb(void *arg)
+{
+	(void) arg;
+	watchy_event_queue_add(EV_MSEC_TICK);
+
+	return true;
+}
+#endif
 
 static bool rtc_second_cb(void *arg)
 {
@@ -535,6 +559,7 @@ void lv_input_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 int main(void)
 {
 	static ztimer_periodic_t timer;
+//	static ztimer_periodic_t mtimer;
 	static lv_indev_drv_t indev_drv;
 
 	memset(&watch_state, 0, sizeof(watchy_state_t));
@@ -543,7 +568,7 @@ int main(void)
 	watch_state.clock.tm_mon = 10;
 	watch_state.clock.tm_mday = 9;
 	watch_state.clock.tm_hour = 8;
-	watch_state.clock.tm_min = 0;
+	watch_state.clock.tm_min = 1;
 	watch_state.clock.tm_sec = 0;
 	watch_state.clock.tm_isdst = 1; // DST in effect
 	watch_state.timez = +1; // CET timezone
@@ -554,8 +579,13 @@ int main(void)
 	ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);
 	ztimer_periodic_start(&timer);
 
+//	ztimer_periodic_init(ZTIMER_MSEC, &mtimer, rtc_msecond_cb, NULL, 1);
+//	ztimer_periodic_start(&mtimer);
+
 	watch_state.gnss_pwr = false;
 	watch_state.bluetooth_pwr = BT_OFF;
+	watch_state.display_brightness = 20;
+	watch_state.display_timeout = DISPLAY_TIMEOUT;
 
 	//strncpy(watch_state.info, "This is a way too long text to be displayed in these two lines" , 63);
 
@@ -564,7 +594,7 @@ int main(void)
 	// display_logo(&_disp_dev);
 
 	// init backlight PWM
-	pwm_set(PWM_DEV(0), 0, 20);
+	pwm_set(PWM_DEV(0), 0, watch_state.display_brightness);
 	//pwm_poweron(PWM_DEV(0));
 	xdisplay_on();
 
@@ -574,6 +604,7 @@ int main(void)
 	if (cst816s_init(&_input_dev, &_cst816s_input_params, touch_cb, NULL) != CST816S_OK) {
 		DEBUG("cst init fail\n");
 	};
+	// cst816s_reset(&_input_dev);
 
 	memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
 	// GNSS/GPS UART, 9600baud default
@@ -618,6 +649,7 @@ int main(void)
 			break;
 	}
 	// DEBUG("BMX280 Initialization successful\n");
+	bmx280_read_pressure(&bmx280_dev);
 
 	kx023_init();
 

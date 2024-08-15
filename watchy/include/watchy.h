@@ -97,7 +97,9 @@ typedef struct {
 	uint32_t rtc_time;					// seconds since epoch, the main RTC counter
 	struct tm clock;					// the clock - it's a watch!
 	int8_t timez;						// time zone offset in hours from UTC
-	uint8_t display_timeout;			// how long until sleep display
+	uint8_t display_timeout;			// how long until sleep (backlight) display
+	uint8_t display_lock_timeout;			// how long until sleep (backlight) display
+	uint8_t display_brightness;			// display brightness level, 0-100
 	power_supply_stat_t pwr_stat;		// current power supply state
 	bool gnss_pwr;						// if GNSS is powered up or not
 	bluetooth_stat_t bluetooth_pwr;			// if Bluetooth is powered

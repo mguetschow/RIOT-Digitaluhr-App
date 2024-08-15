@@ -159,3 +159,30 @@ void handle_gnss_event(char *nmea_line, watchy_state_t *watch_state)
 	memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
 }
 
+#if 0
+function CASIC_CMD(cmd) {
+  var cs = 0;
+  for (var i=1;i<cmd.length;i++)
+    cs = cs ^ cmd.charCodeAt(i);
+  Serial1.println(cmd+"*"+cs.toString(16).toUpperCase().padStart(2, '0'));
+}
+
+CASIC_CMD("$PCAS03,1,0,0,1,0,0,0,0"); // send only 'GGA+GSV' NMEA data (minimum for Bangle.js GPS event)
+// $PCAS03,GGA,GLL,GSA,GSV,RMC,VTG,ZDA,ANT,DHV,LPS...
+CASIC_CMD("$PCAS03,1,0,0,1,1,0,0,0"); // send the NMEA packets Bangle.js expects
+CASIC_CMD("$PCAS04,1"); // Set to GPS-only mode
+/*
+1=GPS
+2=BDS
+3=GPS+BDS
+4=GLONASS
+5=GPS+GLONASS
+6=BDS+GLONASS
+7=GPS+BDS+GLONASS
+*/
+CASIC_CMD("$PCAS02,500"); // Change output speed from default 1000ms to 500ms
+// The valid range is 100->1000ms, but to get below 500ms you must disable un-needed packets with PCAS03
+
+CASIC_CMD("$PCAS00"); // Save all changes to flash memory (be careful!)
+
+#endif
