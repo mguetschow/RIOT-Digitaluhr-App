@@ -173,7 +173,7 @@ static bool gnss_event_trigger(watchy_event_t event)
 
 struct screen gnss_screen = {
     .left = NULL, // left
-    .right = NULL, // right
+    .right = &compass_screen, // right
     .top = &weather_now_screen, // top
     .bottom = NULL, // bottom
     .create = &create_gnss_screen,

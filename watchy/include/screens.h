@@ -12,6 +12,7 @@
 #include "settings_screen.h"
 #include "weather_screen.h"
 #include "gnss_screen.h"
+#include "compass_screen.h"
 
 extern struct screen *cur_screen;
 

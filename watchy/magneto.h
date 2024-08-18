@@ -3,6 +3,8 @@
 #define _MAGNETO_H
 
 int magneto_init(void);
-int magneto_read(uint16_t *x, uint16_t *y, uint16_t *z);
-int magneto_course(uint16_t x, uint16_t y, uint16_t z);
+bool magneto_trigger(void);
+bool magneto_set_state(bool state);
+bool magneto_calibrate(bool state);
+
 #endif

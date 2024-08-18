@@ -74,7 +74,8 @@ void weatherstation_init(void)
 
 	for (i=0; i<24; i++) {
 		historic[i].temp = 20;
-		historic[i].pressure = 100000 + (i*100);
+		//historic[i].pressure = 100000 + (i*100);
+		historic[i].pressure = NORMAL;
 #ifdef HAS_RH_SENSOR
 		historic[i].rh = 0;
 #endif

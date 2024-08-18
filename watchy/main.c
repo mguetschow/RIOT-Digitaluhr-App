@@ -239,7 +239,6 @@ static void touch_cb(void *arg)
 
 	// can not read I2C from IRQ context, just set a flag
 	watchy_event_queue_add(EV_TOUCH);
-	//thread_wakeup(watch_state.event_thread_pid);
 }
 
 static void _push_button_cb(void *arg)
@@ -255,7 +254,6 @@ static void _push_button_cb(void *arg)
         button_ev = 1;
     }
     watchy_event_queue_add(EV_BUTTON);
-    //thread_wakeup(watch_state.event_thread_pid);
 }
 
 static void _ext_power_cb(void *arg)
@@ -263,7 +261,6 @@ static void _ext_power_cb(void *arg)
     (void) arg;
     
     watchy_event_queue_add(EV_POWER_CHANGE);
-    // thread_wakeup(event_thread_pid);
 }
 
 
@@ -273,7 +270,6 @@ void uart_rx_cb(void *arg, uint8_t data)
 
   if (data == '\n') {
       watchy_event_queue_add(EV_GNSS);
-      //thread_wakeup(watch_state.event_thread_pid);
   } else {
       if (data > 0x1f) {
         if (strlen(nmea_line) < (NMEA_LINE_BUF_LEN-2))
@@ -380,11 +376,11 @@ void *event_thread(void *arg)
 			// DEBUG("%d\n", ev);
 			switch (ev) {
 				case EV_MSEC_TICK:
-					if ((ztimer_now(ZTIMER_MSEC) % 10) == 0) {
-						uint16_t x,y,z;
-						magneto_read(&x, &y, &z);
-						printf("x=%05d y=%05d z=%05d\r", x, y, z);
-						//printf("c=%d\n", magneto_course(x, y, z));
+					break;
+				case EV_SEC10_TICK:
+					if (watch_state.magnetometer_state.active) {
+						magneto_trigger();
+						// printf("%d %d %d %d\n", watch_state.magnetometer_state.x, watch_state.magnetometer_state.y, watch_state.magnetometer_state.z, watch_state.magnetometer_state.course);
 					}
 					break;
 				case EV_SEC_TICK: {
@@ -506,15 +502,15 @@ void *event_thread(void *arg)
 }
 
 
-#if 0
 static bool rtc_msecond_cb(void *arg)
 {
 	(void) arg;
 	watchy_event_queue_add(EV_MSEC_TICK);
+	if ((ztimer_now(ZTIMER_MSEC) % 100) == 0)
+		watchy_event_queue_add(EV_SEC10_TICK);
 
 	return true;
 }
-#endif
 
 static bool rtc_second_cb(void *arg)
 {
@@ -559,7 +555,7 @@ void lv_input_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 int main(void)
 {
 	static ztimer_periodic_t timer;
-//	static ztimer_periodic_t mtimer;
+	static ztimer_periodic_t mtimer;
 	static lv_indev_drv_t indev_drv;
 
 	memset(&watch_state, 0, sizeof(watchy_state_t));
@@ -579,8 +575,8 @@ int main(void)
 	ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);
 	ztimer_periodic_start(&timer);
 
-//	ztimer_periodic_init(ZTIMER_MSEC, &mtimer, rtc_msecond_cb, NULL, 1);
-//	ztimer_periodic_start(&mtimer);
+	ztimer_periodic_init(ZTIMER_MSEC, &mtimer, rtc_msecond_cb, NULL, 1);
+	ztimer_periodic_start(&mtimer);
 
 	watch_state.gnss_pwr = false;
 	watch_state.bluetooth_pwr = BT_OFF;

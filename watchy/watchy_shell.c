@@ -213,12 +213,26 @@ static int _cmd_mag(int argc, char **argv)
 {
     (void) argc;
     (void) argv;
-    uint16_t x,y,z;
-    int ret;
 
-    ret = magneto_read(&x, &y, &z);
-    printf("r=0x%02x x=%d y=%d z=%d\n", ret, x, y, z);
-    printf("c=%d\n", magneto_course(x, y, z));
+    if (argc==1 || ((argc == 2) && (memcmp(argv[1], "help", 4) == 0))) {
+        printf("usage: %s [on|off|calibrate|get]\n", argv[0]);
+        return 0;
+    }
+
+    if (strncmp(argv[1], "calibrate", 9) == 0) {
+        watch_state.magnetometer_state.calibrate = !watch_state.magnetometer_state.calibrate;
+        printf("calibration %s\n", watch_state.magnetometer_state.calibrate ? "enabled" : "disabled");
+    }
+    if (strncmp(argv[1], "on", 2) == 0) {
+        watch_state.magnetometer_state.active = true;
+    }
+    if (strncmp(argv[1], "off", 3) == 0) {
+        watch_state.magnetometer_state.active = false;
+    }
+    if (strncmp(argv[1], "get", 3) == 0) {
+    	printf("x=%d y=%d z=%d\n", watch_state.magnetometer_state.x, watch_state.magnetometer_state.y, watch_state.magnetometer_state.z);
+    	printf("c=%d\n", watch_state.magnetometer_state.course);
+    }
 
     return 0;
 }

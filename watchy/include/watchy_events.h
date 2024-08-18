@@ -11,6 +11,7 @@
 typedef enum {
     EV_NONE = 0,
     EV_MSEC_TICK,	// miliseconds timer tick occurred
+    EV_SEC10_TICK,	// 1/10th of second timer tick occurred
     EV_SEC_TICK,	// seconds timer tick occurred
     EV_MIN_TICK,	// once per minute timer tick occurred
     EV_HOUR_TICK,	// once per full hour timer tick occurred
