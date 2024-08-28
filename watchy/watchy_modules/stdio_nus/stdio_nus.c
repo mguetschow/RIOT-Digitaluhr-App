@@ -9,9 +9,9 @@
 #define ENABLE_DEBUG 0
 #include <debug.h>
 
-#include "../../gatt-adv.h"
 #include "../../include/watchy.h"
 #include "../../include/watchy_events.h"
+#include "../../gatt-adv.h"
 
 #include "stdio_nus.h"
 

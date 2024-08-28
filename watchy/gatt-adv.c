@@ -254,6 +254,7 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
 };
 
 static alert_t _last_alert;
+static uint8_t _last_ialert=0;
 
 // 0x1802 Immediate Alert
 //   0x2a06 Alert Level, only one byte, no text or data
@@ -269,15 +270,15 @@ static int gatt_svc_immediate_alert(
 	(void) arg;
 	uint16_t uuid16 = ble_uuid_u16(ctxt->chr->uuid);
 	int rc;
-	uint8_t ialert=0;
+	//uint8_t ialert=0;
 
 	switch (uuid16) {
 		case 0x2a06:
 			assert(ctxt->op == BLE_GATT_ACCESS_OP_WRITE_CHR);
 			uint16_t om_len;
 			om_len = OS_MBUF_PKTLEN(ctxt->om);
-			rc = ble_hs_mbuf_to_flat(ctxt->om, &ialert,
-				sizeof ialert, &om_len);
+			rc = ble_hs_mbuf_to_flat(ctxt->om, &_last_ialert,
+				sizeof _last_ialert, &om_len);
 			watchy_event_queue_add(EV_BT_IALERT);
 			return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
 			break;
@@ -286,6 +287,11 @@ static int gatt_svc_immediate_alert(
 			return BLE_ATT_ERR_UNLIKELY;
 	}
 	return BLE_ATT_ERR_UNLIKELY;
+}
+
+uint8_t watchy_gatt_get_ialert(void)
+{
+	return _last_ialert;
 }
 
 // Alert notification Service UID 0x1811
@@ -317,6 +323,7 @@ static int gatt_svc_alert_notification(
 				rc = ble_hs_mbuf_to_flat(ctxt->om, alertbuf,
 					sizeof alertbuf, &om_len);
 				memcpy(&_last_alert.when, &watch_state.clock, sizeof(watch_state.clock));
+				memset(&_last_alert, 0, sizeof(alert_t));
 				_last_alert.type = alertbuf[0];
 				_last_alert.num_new = alertbuf[1];
 				_last_alert.text = (char *)alertbuf+2;
@@ -330,6 +337,11 @@ static int gatt_svc_alert_notification(
 			return BLE_ATT_ERR_UNLIKELY;
 	}
 	return BLE_ATT_ERR_UNLIKELY;
+}
+
+alert_t *watchy_gatt_get_alert(void)
+{
+	return &_last_alert;
 }
 
 //0 Year

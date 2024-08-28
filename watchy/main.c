@@ -363,6 +363,40 @@ static void xdisplay_on(void)
 }
 #endif
 
+static void vib_trigger(void)
+{
+static bool vib_on;
+
+    watch_state.vib_state.duration--;
+    if (watch_state.vib_state.duration == 0) {
+        watchy_release_ms_event();
+        pwm_set(PWM_DEV(2), 0, 0);
+        pwm_poweroff(PWM_DEV(2));
+        vib_on = false;
+        watch_state.vib_state.active = false;
+    } else {
+        if ((watch_state.vib_state.duration % watch_state.vib_state.pattern) == 0) {
+            if (vib_on) {
+                pwm_poweroff(PWM_DEV(2));
+                vib_on = false;
+            } else {
+                pwm_set(PWM_DEV(2), 0, watch_state.vib_state.level);
+                pwm_poweron(PWM_DEV(2));
+                vib_on = true;
+            }
+        }
+    }
+}
+
+static void vib_start(uint8_t duration, uint8_t level, vib_pattern_t pattern)
+{
+        watch_state.vib_state.pattern = pattern;
+        watch_state.vib_state.duration = duration;
+        watch_state.vib_state.level = level;
+        watch_state.vib_state.active = true;
+        watchy_request_ms_event();
+        vib_trigger();
+}
 
 void *event_thread(void *arg)
 {
@@ -383,6 +417,11 @@ void *event_thread(void *arg)
 						magneto_trigger();
 						// printf("%d %d %d %d\n", watch_state.magnetometer_state.x, watch_state.magnetometer_state.y, watch_state.magnetometer_state.z, watch_state.magnetometer_state.course);
 					}
+					if (watch_state.vib_state.active) {
+						vib_trigger();
+						// printf("%d %d %d %d\n", watch_state.magnetometer_state.x, watch_state.magnetometer_state.y, watch_state.magnetometer_state.z, watch_state.magnetometer_state.course);
+					}
+
 					break;
 				case EV_SEC_TICK: {
 					if (watch_state.display_timeout) {
@@ -482,9 +521,23 @@ void *event_thread(void *arg)
 					gatt_svr_nus_tx_buf(buf, strlen(buf));
 					break;
 				}
-				case EV_BT_ALERT:
+				case EV_BT_ALERT: {
+                                	alert_t *alrt;
+
+					watch_state.display_timeout = DISPLAY_TIMEOUT;
+					wake_lvgl = true;
+					xdisplay_on();
+					alrt = watchy_gatt_get_alert();
+					strncpy(watch_state.info1, alrt->text, 32);
+					watchy_event_queue_add(EV_INFO_NOTE);
+					vib_start(8, 30, VIB_SHORT);
 					break;
+                                }
 				case EV_BT_IALERT:
+					watch_state.display_timeout = DISPLAY_TIMEOUT;
+					wake_lvgl = true;
+					xdisplay_on();
+					vib_start(4+(watchy_gatt_get_ialert() * 4), 30, VIB_SHORT);
 					break;
 				default:
 					DEBUG("no event?\n");
