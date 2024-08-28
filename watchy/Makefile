@@ -19,13 +19,13 @@ EXTERNAL_MODULE_DIRS += watchy_modules
 QUIET ?= 1
 
 # to enable SEGGER RTT console on SWD
-CFLAGS += -DRTT_CONSOLE
-USEMODULE += stdio_rtt
+#CFLAGS += -DRTT_CONSOLE
+#USEMODULE += stdio_rtt
 
 # to enable console via BLE serial
 #USEMODULE += stdio_nimble
 
-#USEMODULE += stdio_nus
+USEMODULE += stdio_nus
 
 CFLAGS += -I$(CURDIR)/include/
 
@@ -38,6 +38,10 @@ USEMODULE += ztimer_sec
 USEMODULE += ztimer_msec
 USEMODULE += timex
 USEMODULE += rtc_utils
+FEATURES_REQUIRED += periph_rtt
+#FEATURES_REQUIRED += periph_rtt_set_counter
+USEMODULE += ztimer_no_periph_rtt
+#USEMODULE += rtt_rtc
 CFLAGS += -DRTC_NORMALIZE_COMPAT=1
 USEMODULE += lpm013m126
 USEMODULE += disp_dev
@@ -71,6 +75,8 @@ USEMODULE += core_thread_flags
 #USEMODULE += lvgl_extra_layout_flex
 USEMODULE += lvgl_extra_theme_default
 USEMODULE += lvgl_extra_theme_default_dark
+
+CFLAGS += -DCONFIG_LVGL_ACTIVITY_PERIOD=1000
 
 USEMODULE += printf_float
 

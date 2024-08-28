@@ -151,7 +151,7 @@ static bool weather_now_event_trigger(watchy_event_t event)
     if (event  == EV_MIN_TICK)
       update_weather_now();
 
-    return false;
+    return true;
 }
 
 static bool weather_24_event_trigger(watchy_event_t event)
@@ -159,7 +159,7 @@ static bool weather_24_event_trigger(watchy_event_t event)
     if (event  == EV_MIN_TICK) {
       
     }
-    return false;
+    return true;
 }
 
 struct screen weather_now_screen = {

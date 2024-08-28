@@ -68,14 +68,14 @@ void weather_update_readings(struct tm *clock)
 }
 
 
-void weatherstation_init(void)
+void weatherstation_init(uint32_t init_pressure)
 {
 	int i;
 
 	for (i=0; i<24; i++) {
 		historic[i].temp = 20;
 		//historic[i].pressure = 100000 + (i*100);
-		historic[i].pressure = NORMAL;
+		historic[i].pressure = init_pressure;
 #ifdef HAS_RH_SENSOR
 		historic[i].rh = 0;
 #endif

@@ -102,6 +102,7 @@ typedef struct {
 	uint8_t display_timeout;			// how long until sleep (backlight) display
 	uint8_t display_lock_timeout;			// how long until sleep (backlight) display
 	uint8_t display_brightness;			// display brightness level, 0-100
+	uint8_t ms_event_use_count;
 	power_supply_stat_t pwr_stat;		// current power supply state
 	bool gnss_pwr;						// if GNSS is powered up or not
 	bluetooth_stat_t bluetooth_pwr;			// if Bluetooth is powered
@@ -117,4 +118,6 @@ typedef struct {
 
 extern watchy_state_t watch_state;
 
+uint8_t watchy_request_ms_event(void);
+uint8_t watchy_release_ms_event(void);
 #endif

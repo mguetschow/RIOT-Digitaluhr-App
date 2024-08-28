@@ -105,6 +105,7 @@ static lv_obj_t *create_compass_screen(void)
     update_compass();
 
     watch_state.magnetometer_state.active = true;
+    watchy_request_ms_event();
 
     return lv_compass_screen;
 }
@@ -112,6 +113,7 @@ static lv_obj_t *create_compass_screen(void)
 static void cleanup_compass_screen(void)
 {
     watch_state.magnetometer_state.active = false;
+    watchy_release_ms_event();
 }
 
 static bool compass_event_trigger(watchy_event_t event)

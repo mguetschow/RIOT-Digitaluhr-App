@@ -131,8 +131,8 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
      * given characteristics
      */
     {	
-		// 0x2a29 Manufacturer Name String
-		// 0x2a24 Model Number String
+        // 0x2a29 Manufacturer Name String
+        // 0x2a24 Model Number String
     	// 0x2a25 Serial Number String
     	// 0x2a26 Firmware Revision String
     	// 0x2a27 Hardware Revision String
@@ -255,11 +255,11 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
 
 static alert_t _last_alert;
 
-	// 0x1802 Immediate Alert
-	//   0x2a06 Alert Level, only one byte, no text or data
-	//     0x00 No Alert
-	//     0x01 Mild Alert
-	//     0x02 Hihg Alert
+// 0x1802 Immediate Alert
+//   0x2a06 Alert Level, only one byte, no text or data
+//     0x00 No Alert
+//     0x01 Mild Alert
+//     0x02 High Alert
 static int gatt_svc_immediate_alert(
         uint16_t conn_handle, uint16_t attr_handle,
         struct ble_gatt_access_ctxt *ctxt, void *arg)
@@ -489,24 +489,24 @@ static struct ble_npl_callout _send_nus_tx_callout;
 
 ssize_t gatt_svr_nus_tx_buf(char *buf, unsigned int len)
 {
-    //int res=-1;
+	//int res=-1;
 
 	ble_npl_callout_reset(&_send_nus_tx_callout, CALLOUT_TICKS_MS);
 
 	if (len > tsrb_free(&_tsrb_nus_tx))
 		len = tsrb_free(&_tsrb_nus_tx);
 
-    return tsrb_add(&_tsrb_nus_tx, (uint8_t *)(buf), len);
+        return tsrb_add(&_tsrb_nus_tx, (uint8_t *)(buf), len);
 }
 
 
 static void _npl_tx_cb(struct ble_npl_event *ev)
 {
 	(void)ev;
-    struct os_mbuf *om;
-    int res=-1;
-    ssize_t len;
-    uint8_t txb[21];
+	struct os_mbuf *om;
+	int res=-1;
+	ssize_t len;
+	uint8_t txb[21];
 
 	//DEBUG("tx %d\n", len);
 
@@ -517,10 +517,10 @@ static void _npl_tx_cb(struct ble_npl_event *ev)
 
 	ble_npl_callout_reset(&_send_nus_tx_callout, CALLOUT_TICKS_MS);
 
-    om = ble_hs_mbuf_from_flat(txb, len);
-    res = ble_gatts_notify_custom(_conn_handle, _nus_val_handle, om);
-    if (res == 0)
-    	tsrb_drop(&_tsrb_nus_tx, len);
+	om = ble_hs_mbuf_from_flat(txb, len);
+	res = ble_gatts_notify_custom(_conn_handle, _nus_val_handle, om);
+	if (res == 0)
+		tsrb_drop(&_tsrb_nus_tx, len);
 }
 
 int watchy_gatt_nus_get_rx(char *buf, unsigned int len)
@@ -538,163 +538,161 @@ static int gatt_svr_nus_rxtx(
         uint16_t conn_handle, uint16_t attr_handle,
         struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
-    //DEBUG("service 'NUS' callback triggered\n");
+	//DEBUG("service 'NUS' callback triggered\n");
 
-    (void) conn_handle;
-    (void) attr_handle;
-    (void) arg;
+	(void) conn_handle;
+	(void) attr_handle;
+	(void) arg;
 	char _nus_rx_buf[21];
 	uint8_t _nus_rx_len=0;
 
-    int rc = 0;
+	int rc = 0;
 
-    ble_uuid_t* rx_uuid = (ble_uuid_t*) &gatt_svr_chr_nus_rx_uuid.u;
-    // ble_uuid_t* tx_uuid = (ble_uuid_t*) &gatt_svr_chr_nus_tx_uuid.u;
+	ble_uuid_t* rx_uuid = (ble_uuid_t*) &gatt_svr_chr_nus_rx_uuid.u;
+	// ble_uuid_t* tx_uuid = (ble_uuid_t*) &gatt_svr_chr_nus_tx_uuid.u;
 
-    if (ble_uuid_cmp(ctxt->chr->uuid, rx_uuid) == 0) {
+	if (ble_uuid_cmp(ctxt->chr->uuid, rx_uuid) == 0) {
 
-        // DEBUG("access to characteristic 'NUS rx'\n");
+		// DEBUG("access to characteristic 'NUS rx'\n");
 
-        switch (ctxt->op) {
-            case BLE_GATT_ACCESS_OP_READ_CHR:
-                DEBUG("read from characteristic\n");
-                break;
+		switch (ctxt->op) {
+			case BLE_GATT_ACCESS_OP_READ_CHR:
+				DEBUG("read from characteristic\n");
+				break;
 
-            case BLE_GATT_ACCESS_OP_WRITE_CHR: {
-                DEBUG("write to characteristic\n");
-                uint16_t om_len;
-                om_len = OS_MBUF_PKTLEN(ctxt->om);
+			case BLE_GATT_ACCESS_OP_WRITE_CHR: {
+				DEBUG("write to characteristic\n");
+				uint16_t om_len;
+				om_len = OS_MBUF_PKTLEN(ctxt->om);
 
-                if (om_len > 20)
-                    DEBUG("NUS RX>20!\n");
-                /* read sent data */
-                rc = ble_hs_mbuf_to_flat(ctxt->om, _nus_rx_buf,
-                                         sizeof _nus_rx_buf, &om_len);
-                /* we need to null-terminate the received string */
-                _nus_rx_buf[om_len] = '\0';
-                _nus_rx_len = om_len;
+				if (om_len > 20)
+					DEBUG("NUS RX>20!\n");
+				/* read sent data */
+				rc = ble_hs_mbuf_to_flat(ctxt->om, _nus_rx_buf,
+					sizeof _nus_rx_buf, &om_len);
+				/* we need to null-terminate the received string */
+				_nus_rx_buf[om_len] = '\0';
+				_nus_rx_len = om_len;
 #if IS_USED(MODULE_STDIO_NUS)
 				isrpipe_write(&_isrpipe_stdin, (uint8_t *)_nus_rx_buf, _nus_rx_len);
 #else
-                tsrb_add(&_tsrb_nus_rx,  (uint8_t *)_nus_rx_buf, _nus_rx_len);
-                DEBUG("NUS RX: '%s'\n", _nus_rx_buf);
-                watchy_event_queue_add(EV_BT_NUS);
+				tsrb_add(&_tsrb_nus_rx,  (uint8_t *)_nus_rx_buf, _nus_rx_len);
+				DEBUG("NUS RX: '%s'\n", _nus_rx_buf);
+				watchy_event_queue_add(EV_BT_NUS);
 #endif
-                break;
-            }
-            default:
-                DEBUG("unhandled operation! %d\n", ctxt->op);
-                rc = 1;
-                break;
-        }
-        return rc;
-    }
+				break;
+			}
+			default:
+				DEBUG("unhandled operation! %d\n", ctxt->op);
+				rc = 1;
+				break;
+		}
+	return rc;
+	}
 
-    DEBUG("unhandled uuid!");
-    return 1;
+	DEBUG("unhandled uuid!");
+	return 1;
 }
 
 
 static int gap_event_cb(struct ble_gap_event *event, void *arg)
 {
-    (void)arg;
+	(void)arg;
 
-    switch (event->type) {
-        case BLE_GAP_EVENT_CONNECT:
-            DEBUG("GAP connect\n");
-            if (event->connect.status) {
-                nimble_autoadv_start(NULL);
-                return 0;
-            }
-            // if (_conn_handle != 0)
-            // 		ble_gap_terminate(event->connect.conn_handle, uint8_t hci_reason)
-            _conn_handle = event->connect.conn_handle;
-            watch_state.bluetooth_pwr = BT_CONN;
-            watchy_event_queue_add(EV_BT_CONN);
+	switch (event->type) {
+		case BLE_GAP_EVENT_CONNECT:
+			DEBUG("GAP connect\n");
+			if (event->connect.status) {
+				nimble_autoadv_start(NULL);
+				return 0;
+			}
+			// if (_conn_handle != 0)
+			// 	ble_gap_terminate(event->connect.conn_handle, uint8_t hci_reason)
+			_conn_handle = event->connect.conn_handle;
+			watch_state.bluetooth_pwr = BT_CONN;
+			watchy_event_queue_add(EV_BT_CONN);
 #if IS_USED(MODULE_STDIO_NUS)
 			tsrb_clear(&_isrpipe_stdin.tsrb);
-            isrpipe_write_one(&_isrpipe_stdin, '\x03');
+			isrpipe_write_one(&_isrpipe_stdin, '\x03');
 #endif
-            break;
+			break;
 
-        case BLE_GAP_EVENT_DISCONNECT:
-            DEBUG("GAP disconnect\n");
-            _conn_handle = 0;
-            nimble_autoadv_start(NULL);
+		case BLE_GAP_EVENT_DISCONNECT:
+			DEBUG("GAP disconnect\n");
+			_conn_handle = 0;
+			nimble_autoadv_start(NULL);
 #if IS_USED(MODULE_SHELL_LOCK)
 #if IS_USED(MODULE_STDIO_NUS)
-            isrpipe_write_one(&_isrpipe_stdin, '\x03');
+			isrpipe_write_one(&_isrpipe_stdin, '\x03');
 #endif
 			shell_lock_do_lock();
 #endif
-            watch_state.bluetooth_pwr = BT_ON;
-            watchy_event_queue_add(EV_BT_CONN);
-            break;
+			watch_state.bluetooth_pwr = BT_ON;
+			watchy_event_queue_add(EV_BT_CONN);
+			break;
 
-        case BLE_GAP_EVENT_SUBSCRIBE:
-            DEBUG("GAP subscribe\n");
-            if (event->subscribe.attr_handle == _nus_val_handle) {
-                if (event->subscribe.cur_notify == 1) {
-                    DEBUG("start notif\n");
-                }
-                else {
-                    DEBUG("stop notif\n");
-                }
-            }
-            break;
+		case BLE_GAP_EVENT_SUBSCRIBE:
+			DEBUG("GAP subscribe\n");
+			if (event->subscribe.attr_handle == _nus_val_handle) {
+				if (event->subscribe.cur_notify == 1) {
+					DEBUG("start notif\n");
+				} else {
+					DEBUG("stop notif\n");
+				}
+			}
+			break;
 
-        case BLE_GAP_EVENT_NOTIFY_TX:
-            DEBUG("GAP notify TX\n");
-            if (event->notify_tx.indication == 1 && (event->notify_tx.conn_handle == _conn_handle)) {
-            }
-            break;
+		case BLE_GAP_EVENT_NOTIFY_TX:
+			DEBUG("GAP notify TX\n");
+			if (event->notify_tx.indication == 1 && (event->notify_tx.conn_handle == _conn_handle)) {
+			}
+			break;
 
-        case BLE_GAP_EVENT_MTU:
-            DEBUG("GAP MTU: %d\n", event->mtu.value);
-            break;
+		case BLE_GAP_EVENT_MTU:
+			DEBUG("GAP MTU: %d\n", event->mtu.value);
+			break;
 
 		case BLE_GAP_EVENT_ENC_CHANGE:
-            DEBUG("GAP ENC CHANGE\n");
+			DEBUG("GAP ENC CHANGE\n");
 			break;
 		case BLE_GAP_EVENT_PASSKEY_ACTION:
-            DEBUG("GAP PASSKEY ACTION\n");
+			DEBUG("GAP PASSKEY ACTION\n");
 			break;
 		case BLE_GAP_EVENT_IDENTITY_RESOLVED:
-            DEBUG("GAP IDENTITY RESOLVED\n");
+			DEBUG("GAP IDENTITY RESOLVED\n");
 			break;
 		case BLE_GAP_EVENT_REPEAT_PAIRING:
-            DEBUG("GAP REPEAT PAIRING\n");
+			DEBUG("GAP REPEAT PAIRING\n");
 			break;
 		case BLE_GAP_EVENT_CONN_UPDATE:
-            DEBUG("GAP CONN UPDATE\n");
+			DEBUG("GAP CONN UPDATE\n");
 			break;
 		case BLE_GAP_EVENT_CONN_UPDATE_REQ:
-            DEBUG("GAP CONN UPDATE REQ\n");
+			DEBUG("GAP CONN UPDATE REQ\n");
 			break;
 		case BLE_GAP_EVENT_L2CAP_UPDATE_REQ:
-            DEBUG("GAP L2CAP UPDATE REQ\n");
+			DEBUG("GAP L2CAP UPDATE REQ\n");
 			break;
-        default:
-            DEBUG("GAP unhandled: %d\n", event->type);
-            break;
-    }
+		default:
+			DEBUG("GAP unhandled: %d\n", event->type);
+			break;
+	}
 
-    return 0;
+	return 0;
 }
 
 int watchy_gatt_init (void)
 {
-    int rc = 0;
+	int rc = 0;
 
 	_conn_handle = 0;
-	ble_npl_callout_init(&_send_nus_tx_callout, nimble_port_get_dflt_eventq(),
-                         _npl_tx_cb, NULL);
+	ble_npl_callout_init(&_send_nus_tx_callout, nimble_port_get_dflt_eventq(), _npl_tx_cb, NULL);
 
-    /* verify and add our custom services */
-    rc = ble_gatts_count_cfg(gatt_svr_svcs);
-    assert(rc == 0);
-    rc = ble_gatts_add_svcs(gatt_svr_svcs);
-    assert(rc == 0);
+	/* verify and add our custom services */
+	rc = ble_gatts_count_cfg(gatt_svr_svcs);
+	assert(rc == 0);
+	rc = ble_gatts_add_svcs(gatt_svr_svcs);
+	assert(rc == 0);
 
 	/* set the device name */
 	ble_svc_gap_device_name_set("Watchy");
@@ -707,5 +705,5 @@ int watchy_gatt_init (void)
 
 	nimble_autoadv_set_gap_cb(&gap_event_cb, NULL);
 
-    return rc;
+	return rc;
 }

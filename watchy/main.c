@@ -36,6 +36,7 @@
 #include <periph/pwm.h>
 #include <periph/i2c.h>
 #include <periph/uart.h>
+#include <periph/rtt.h>
 #include <cst816s.h>
 
 #include <bmx280.h>
@@ -225,11 +226,11 @@ static const lpm013m126_params_t lpm013m126_params = {
 
 static void display_logo(lpm013m126_t *dev)
 {
-    int sline=0;
+	int sline=0;
 
-    for (sline=0; sline<176; sline+=16) {
-        lpm013m126_write_lines(dev, &riot_logo_4bpp[sline*(176/2)], sline, 16);
-    }
+	for (sline=0; sline<176; sline+=16) {
+		lpm013m126_write_lines(dev, &riot_logo_4bpp[sline*(176/2)], sline, 16);
+	}
 }
 #endif
 
@@ -243,41 +244,41 @@ static void touch_cb(void *arg)
 
 static void _push_button_cb(void *arg)
 {
-    (void) arg;
-    static uint32_t last_time_pressed=0;
+	(void) arg;
+	static uint32_t last_time_pressed=0;
 
-    // DEBUG("Button %s", gpio_read(BUTTON0) ? "released " : "pressed\n");
-    if (gpio_read(BUTTON0)) {
-        button_ev = ztimer_now(ZTIMER_MSEC) - last_time_pressed;
-    } else {
-        last_time_pressed = ztimer_now(ZTIMER_MSEC);
-        button_ev = 1;
-    }
-    watchy_event_queue_add(EV_BUTTON);
+	// DEBUG("Button %s", gpio_read(BUTTON0) ? "released " : "pressed\n");
+	if (gpio_read(BUTTON0)) {
+		button_ev = ztimer_now(ZTIMER_MSEC) - last_time_pressed;
+	} else {
+		last_time_pressed = ztimer_now(ZTIMER_MSEC);
+		button_ev = 1;
+	}
+	watchy_event_queue_add(EV_BUTTON);
 }
 
 static void _ext_power_cb(void *arg)
 {
-    (void) arg;
+	(void) arg;
     
-    watchy_event_queue_add(EV_POWER_CHANGE);
+	watchy_event_queue_add(EV_POWER_CHANGE);
 }
 
 
 void uart_rx_cb(void *arg, uint8_t data)
 {
-  (void) arg;
+	(void) arg;
 
-  if (data == '\n') {
-      watchy_event_queue_add(EV_GNSS);
-  } else {
-      if (data > 0x1f) {
-        if (strlen(nmea_line) < (NMEA_LINE_BUF_LEN-2))
-          nmea_line[strlen(nmea_line)] = data;
-        else
-          memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
-      }
-  }
+	if (data == '\n') {
+		watchy_event_queue_add(EV_GNSS);
+	} else {
+		if (data > 0x1f) {
+			if (strlen(nmea_line) < (NMEA_LINE_BUF_LEN-2))
+				nmea_line[strlen(nmea_line)] = data;
+			else
+				memset(nmea_line, 0, NMEA_LINE_BUF_LEN);
+		}
+	}
 }
 
 #if 0
@@ -334,31 +335,31 @@ static bool _xdisplay_on = false;
 
 static void xdisplay_off(void)
 {
-  if (_xdisplay_on) {
-    // power off backlight
-    pwm_poweroff(PWM_DEV(0));
-    // power off EXTCOM PWM
-    pwm_poweroff(PWM_DEV(1));
-    _xdisplay_on = false;
-  }
-  gpio_toggle(LCD_EXTCOMIN);
-  // if we are charging, no need to disable the touchscreen
-//  if (!watch_state.pwr_stat.charger_present)
-//	cst816s_deep_sleep(&_input_dev);
+	if (_xdisplay_on) {
+		// power off backlight
+		pwm_poweroff(PWM_DEV(0));
+		// power off EXTCOM PWM
+		pwm_poweroff(PWM_DEV(1));
+		_xdisplay_on = false;
+	}
+	gpio_toggle(LCD_EXTCOMIN);
+	// if we are charging, no need to disable the touchscreen
+	// if (!watch_state.pwr_stat.charger_present)
+	//	cst816s_deep_sleep(&_input_dev);
 }
 
 static void xdisplay_on(void)
 {
-  if (!_xdisplay_on) {
-    gpio_clear(LCD_EXTCOMIN);
+	if (!_xdisplay_on) {
+		gpio_clear(LCD_EXTCOMIN);
 
-    // power on EXTCOM PWM
-    pwm_poweron(PWM_DEV(1));
-    // power on backlight
-    pwm_poweron(PWM_DEV(0));
-    _xdisplay_on=true;
-  }
-//  cst816s_reset(&_input_dev);
+		// power on EXTCOM PWM
+		pwm_poweron(PWM_DEV(1));
+		// power on backlight
+		pwm_poweron(PWM_DEV(0));
+		_xdisplay_on=true;
+	}
+	// cst816s_reset(&_input_dev);
 }
 #endif
 
@@ -481,6 +482,8 @@ void *event_thread(void *arg)
 					gatt_svr_nus_tx_buf(buf, strlen(buf));
 					break;
 				}
+				case EV_BT_ALERT:
+					break;
 				case EV_BT_IALERT:
 					break;
 				default:
@@ -505,6 +508,7 @@ void *event_thread(void *arg)
 static bool rtc_msecond_cb(void *arg)
 {
 	(void) arg;
+
 	watchy_event_queue_add(EV_MSEC_TICK);
 	if ((ztimer_now(ZTIMER_MSEC) % 100) == 0)
 		watchy_event_queue_add(EV_SEC10_TICK);
@@ -512,51 +516,75 @@ static bool rtc_msecond_cb(void *arg)
 	return true;
 }
 
-static bool rtc_second_cb(void *arg)
+//static bool rtc_second_cb(void *arg)
+static void rtc_second_cb(void *arg)
 {
 	(void) arg;
+
+	rtt_set_alarm(rtt_get_counter() + RTT_SEC_TO_TICKS (1), rtc_second_cb, NULL);
 
 	watch_state.rtc_time++;
 	watch_state.clock.tm_sec = (int)(watch_state.rtc_time % 60);
 	watchy_event_queue_add(EV_SEC_TICK);
 
-	if (watch_state.rtc_time % 60 == 0) {
+	if (watch_state.clock.tm_sec == 0) {
 		rtc_localtime(watch_state.rtc_time, &watch_state.clock);
 
 		watchy_event_queue_add(EV_MIN_TICK);
 
 		// we just rolled over to a full hour
-		if (watch_state.clock.tm_min ==0) {
+		if (watch_state.clock.tm_min == 0) {
 			watchy_event_queue_add(EV_HOUR_TICK);
 		}
 	}
 
-	return true;
+//	return true;
 }
 
 void lv_input_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
 {
-  (void) drv;
+	(void) drv;
 
-  data->point.x = watch_state.touch_state.x;
-  data->point.y = watch_state.touch_state.y;
-  data->continue_reading = false;
-  if (watch_state.touch_state.clicked) {
-    watch_state.touch_state.clicked=false;
-    data->state = LV_INDEV_STATE_PRESSED;
-    // DEBUG("lvclk %d %d\n", data->point.x, data->point.y);
-  } else {
-    data->state = LV_INDEV_STATE_RELEASED; 
-    // DEBUG("lvclk rel\n");
-  }
+	data->point.x = watch_state.touch_state.x;
+	data->point.y = watch_state.touch_state.y;
+	data->continue_reading = false;
+	if (watch_state.touch_state.clicked) {
+		watch_state.touch_state.clicked=false;
+		data->state = LV_INDEV_STATE_PRESSED;
+		// DEBUG("lvclk %d %d\n", data->point.x, data->point.y);
+	} else {
+		data->state = LV_INDEV_STATE_RELEASED; 
+		// DEBUG("lvclk rel\n");
+	}
 }
 
+static ztimer_periodic_t mtimer;
+uint8_t watchy_request_ms_event(void)
+{
+	watch_state.ms_event_use_count++;
+	if (watch_state.ms_event_use_count == 1)
+		ztimer_periodic_start(&mtimer);
+
+	return watch_state.ms_event_use_count;
+}
+
+uint8_t watchy_release_ms_event(void)
+{
+	watch_state.ms_event_use_count--;
+
+	if (watch_state.ms_event_use_count == 0)
+		ztimer_periodic_stop(&mtimer);
+
+	return watch_state.ms_event_use_count;
+}
 
 int main(void)
 {
-	static ztimer_periodic_t timer;
-	static ztimer_periodic_t mtimer;
+	//static ztimer_periodic_t timer;
 	static lv_indev_drv_t indev_drv;
+
+	rtt_init();
+	rtt_poweron();
 
 	memset(&watch_state, 0, sizeof(watchy_state_t));
 
@@ -565,18 +593,19 @@ int main(void)
 	watch_state.clock.tm_mday = 9;
 	watch_state.clock.tm_hour = 8;
 	watch_state.clock.tm_min = 1;
-	watch_state.clock.tm_sec = 0;
+	watch_state.clock.tm_sec = 1;
 	watch_state.clock.tm_isdst = 1; // DST in effect
 	watch_state.timez = +1; // CET timezone
 	//watch_state.timez = -8; // PST timezone
 	rtc_tm_normalize(&watch_state.clock);
 	watch_state.rtc_time = rtc_mktime(&watch_state.clock);
 
-	ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);
-	ztimer_periodic_start(&timer);
+	rtt_set_alarm(rtt_get_counter() + RTT_SEC_TO_TICKS (1), rtc_second_cb, NULL);
+//	ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);
+//	ztimer_periodic_start(&timer);
 
 	ztimer_periodic_init(ZTIMER_MSEC, &mtimer, rtc_msecond_cb, NULL, 1);
-	ztimer_periodic_start(&mtimer);
+	watch_state.ms_event_use_count = 0;
 
 	watch_state.gnss_pwr = false;
 	watch_state.bluetooth_pwr = BT_OFF;
@@ -645,7 +674,7 @@ int main(void)
 			break;
 	}
 	// DEBUG("BMX280 Initialization successful\n");
-	bmx280_read_pressure(&bmx280_dev);
+	weatherstation_init(bmx280_read_pressure(&bmx280_dev));
 
 	kx023_init();
 
@@ -653,7 +682,6 @@ int main(void)
 
 	vc31_init();
 
-	weatherstation_init();
 	weather_update_readings(&watch_state.clock);
 
 	lvgl_run();
