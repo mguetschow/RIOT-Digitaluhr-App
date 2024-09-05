@@ -160,6 +160,21 @@ void handle_gnss_event(char *nmea_line, watchy_state_t *watch_state)
 }
 
 #if 0
+// cmd needs to be a NULL terminated string
+static bool send_PCAS_cmd(char *cmd)
+{
+	uint8_t i;
+	uint8_t crc=0;
+
+	for (i=0; i<strlen(cmd); i++)
+		crc = crc ^ cmd[i];
+
+	serial_write(cmd);
+	serial_write("*%02X\r\n", crc)
+}
+#endif
+
+#if 0
 function CASIC_CMD(cmd) {
   var cs = 0;
   for (var i=1;i<cmd.length;i++)
@@ -185,4 +200,7 @@ CASIC_CMD("$PCAS02,500"); // Change output speed from default 1000ms to 500ms
 
 CASIC_CMD("$PCAS00"); // Save all changes to flash memory (be careful!)
 
+
+See page 23:
+https://files.waveshare.com/upload/d/dd/Quectel_L76K_GNSS_Protocol_Specification_V1.1.pdf
 #endif
