@@ -127,8 +127,8 @@ typedef struct {
 	hrm_state_t hrm_state;
 	vib_state_t vib_state;
 	bool notification;					// toggles '!' icon in top row
-	char info1[32];						// two line info text on bottom of main screen
-	char info2[32];
+	char info1[33];						// two line info text on bottom of main screen
+	char info2[33];
 } watchy_state_t;
 
 extern watchy_state_t watch_state;
