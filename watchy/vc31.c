@@ -259,7 +259,7 @@ int vc31_activate(void)
     // uint8_t val=0;
 
     gpio_set(HRM_PWR);
-    ztimer_sleep(ZTIMER_USEC, 1000);
+    ztimer_sleep(ZTIMER_MSEC, 1);
 
     i2c_acquire(HRM_I2C_DEV);
 
@@ -281,7 +281,7 @@ int vc31_init(void)
     uint8_t val=0;
 
     gpio_set(HRM_PWR);
-    ztimer_sleep(ZTIMER_USEC, 1000);
+    ztimer_sleep(ZTIMER_MSEC, 1);
 
     i2c_acquire(HRM_I2C_DEV);
     if (i2c_read_regs(HRM_I2C_DEV, HRM_I2C_ADDR, 0x00, &val, 1, 0) < 0) {
