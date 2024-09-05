@@ -40,7 +40,8 @@ USEMODULE += timex
 USEMODULE += rtc_utils
 FEATURES_REQUIRED += periph_rtt
 #FEATURES_REQUIRED += periph_rtt_set_counter
-USEMODULE += ztimer_no_periph_rtt
+USEMODULE += ztimer_ondemand
+#USEMODULE += ztimer_no_periph_rtt
 #USEMODULE += rtt_rtc
 CFLAGS += -DRTC_NORMALIZE_COMPAT=1
 USEMODULE += lpm013m126

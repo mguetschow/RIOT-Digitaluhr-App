@@ -569,12 +569,12 @@ static bool rtc_msecond_cb(void *arg)
 	return true;
 }
 
-//static bool rtc_second_cb(void *arg)
-static void rtc_second_cb(void *arg)
+static bool rtc_second_cb(void *arg)
+//static void rtc_second_cb(void *arg)
 {
 	(void) arg;
 
-	rtt_set_alarm(rtt_get_counter() + RTT_SEC_TO_TICKS (1), rtc_second_cb, NULL);
+	//rtt_set_alarm(rtt_get_counter() + RTT_SEC_TO_TICKS (1), rtc_second_cb, NULL);
 
 	watch_state.rtc_time++;
 	watch_state.clock.tm_sec = (int)(watch_state.rtc_time % 60);
@@ -591,7 +591,7 @@ static void rtc_second_cb(void *arg)
 		}
 	}
 
-//	return true;
+	return true;
 }
 
 void lv_input_cb(lv_indev_drv_t *drv, lv_indev_data_t *data)
@@ -633,7 +633,7 @@ uint8_t watchy_release_ms_event(void)
 
 int main(void)
 {
-	//static ztimer_periodic_t timer;
+	static ztimer_periodic_t timer;
 	static lv_indev_drv_t indev_drv;
 
 	rtt_init();
@@ -653,9 +653,9 @@ int main(void)
 	rtc_tm_normalize(&watch_state.clock);
 	watch_state.rtc_time = rtc_mktime(&watch_state.clock);
 
-	rtt_set_alarm(rtt_get_counter() + RTT_SEC_TO_TICKS (1), rtc_second_cb, NULL);
-//	ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);
-//	ztimer_periodic_start(&timer);
+//	rtt_set_alarm(rtt_get_counter() + RTT_SEC_TO_TICKS (1), rtc_second_cb, NULL);
+	ztimer_periodic_init(ZTIMER_SEC, &timer, rtc_second_cb, NULL, 1);
+	ztimer_periodic_start(&timer);
 
 	ztimer_periodic_init(ZTIMER_MSEC, &mtimer, rtc_msecond_cb, NULL, 1);
 	watch_state.ms_event_use_count = 0;
