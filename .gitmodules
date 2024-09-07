@@ -1,0 +1,4 @@
+[submodule "RIOT"]
+	path = RIOT
+	url = git@github.com:nica-f/RIOT-Digitaluhr.git
+	branch = b2

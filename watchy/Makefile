@@ -5,8 +5,7 @@ APPLICATION = watchy
 BOARD ?= banglejs-2
 
 # This has to be the absolute path to the RIOT base directory:
-RIOTBASE ?= $(CURDIR)/../../RIOT-Digitaluhr
-#RIOTBASE ?= /home/nica/Code/PineTime-apps/RIOT
+RIOTBASE ?= $(CURDIR)/../RIOT
 
 EXTERNAL_MODULE_DIRS += watchy_modules
 
